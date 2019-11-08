@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "__Cell.h"
 
 shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring contents) {
@@ -6,22 +7,24 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring con
 	//R == 0 || C == 0 almost certainly indicates a failure to specify one or both arguments.
 	if (position.row == 0 || position.column == 0) { throw invalid_argument("Neither Row 0, nor Column 0 exist."); }
 
-	char key = contents[0];
+	shared_ptr<CELL> cell;
+
+	wchar_t key = contents[0];
 	switch (key){
-	case '\'': { cell.reset(new TEXT_CELL()); } break;			//Enforce textual interpretation for format: '__
-	case '&': { cell.reset(new REFERENCE_CELL()); } break;		//Takes input in the form of: &R__C__ or &C__R__
+	case L'\'': { cell.reset(new TEXT_CELL()); } break;			//Enforce textual interpretation for format: '__
+	case L'&': { cell.reset(new REFERENCE_CELL()); } break;		//Takes input in the form of: &R__C__ or &C__R__
 	//case '=': { cell.reset(new FUNCTION_CELL()); } break;		//Not yet implemented...
-	case '.':
-	case '1':
-	case '2':
-	case '3':
-	case '4':
-	case '5':
-	case '6':
-	case '7':
-	case '8':
-	case '9':
-	case '0': { cell.reset(new NUMERICAL_CELL()); } break;		//Any cell beginning with a number or decimal is a number.
+	case L'.':
+	case L'1':
+	case L'2':
+	case L'3':
+	case L'4':
+	case L'5':
+	case L'6':
+	case L'7':
+	case L'8':
+	case L'9':
+	case L'0': { cell.reset(new NUMERICAL_CELL()); } break;		//Any cell beginning with a number or decimal is a number.
 	default: { cell.reset(new TEXT_CELL()); } break;			//By default, all cells are text cells unless otherwise determined.
 	}
 
@@ -33,7 +36,15 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring con
 
 	cellMap[position] = cell;
 
-	return cell;
+	//Factory is entirely done with cell.
+	//Use std::move() to ensure no dangling reference allows for future erroneous alterations.
+	return std::move(cell);
+}
+
+void CELL::MoveCell(CELL_POSITION newPosition) {
+	cellMap[newPosition] = cellMap[position];
+	cellMap.erase(position);
+	position = newPosition;
 }
 
 void REFERENCE_CELL::InitializeCell() {

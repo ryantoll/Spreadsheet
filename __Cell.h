@@ -8,44 +8,36 @@
 //The end goal is to create clear, flexible code open to further extention.
 *////////////////////////////////////////////////////////////////////////////////////////////////
 
-#ifndef __CELL
-#define __CELL
+#ifndef __CELL_CLASS
+#define __CELL_CLASS
 
 #include "stdafx.h"
 #include <map>
 #include <string>
 using namespace std;
 
-class CELL;
-struct CELL_POSITION;
-
-//Map holds all non-null cells.
-//The use of an associative container rather than a sequential container obviates the need for filler cells in empty positions.
-//CELL_POSITION defines it's own operator< and operator== for use in map sorting.
-//The choice of column sorting preempting row sorting is arbitrary. Either way is fine so long as it is consistent.
-//Note that an "Observer" pattern may be needed in association with cellMap to notify relevant cells when changes occur.
-//Changes may cascade, so notifications may need to specify what changes or which cells are potentially affected.
-map<CELL_POSITION, shared_ptr<CELL>> cellMap;
-
-struct CELL_POSITION {
-	unsigned int row{ 0 };
-	unsigned int column{ 0 };
-
-	bool operator< (const CELL_POSITION& other) {
-		if (column < other.column) { return true; }
-		else if (column == other.column && row < other.row) { return true; }
-		else { return false; }
-	}
-
-	bool operator== (const CELL_POSITION& other) {
-		if (column == other.column && row == other.row) { return true; }
-		else { return false; }
-	}
-};
-
 //Base class for all cells.
 //It stores the raw input string, a display value of that string, and returns the protected display value.
 class CELL {
+public:
+	struct CELL_POSITION {
+		unsigned int row{ 0 };
+		unsigned int column{ 0 };
+	};
+
+	//Internal "Singleton" factory, which has implicit access to private and protected CELL members.
+	//NewCell() member function should be fixed for consistency with existing cell types.
+	//Factory should be open to extention to support new cell types, defaulting to NewCell().
+	class CELL_FACTORY {
+	public:
+		virtual ~CELL_FACTORY() {}
+		static shared_ptr<CELL> NewCell(CELL_POSITION, wstring);
+	protected:
+		//static shared_ptr<CELL> cell;
+	};
+
+	static CELL_FACTORY cell_factory;
+
 private:
 	wstring rawContent;
 protected:
@@ -63,23 +55,31 @@ public:
 	virtual ~CELL() {}
 	virtual wstring DisplayOutput() { return error ? L"!ERROR!" : displayValue; }
 	virtual void InitializeCell() { displayValue = rawContent; }
-	virtual void MoveCell(CELL_POSITION newPosition) {
-		cellMap[newPosition] = cellMap[position];
-		cellMap.erase(position);
-		position = newPosition;
-	}
-
-	//Internal "Singleton" factory, which has implicit access to private and protected CELL members.
-	//NewCell() member function should be fixed for consistency.
-	//Factory should be open to extention to support new cell types, defaulting to NewCell().
-	class CELL_FACTORY {
-	public:
-		virtual ~CELL_FACTORY() = 0;
-		static shared_ptr<CELL> NewCell(CELL_POSITION, wstring);
-	protected:
-		static shared_ptr<CELL> cell;
-	};
+	virtual void MoveCell(CELL_POSITION newPosition);
 };
+
+inline bool operator< (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION& rhs) {
+	if (lhs.column < rhs.column) { return true; }
+	else if (lhs.column == rhs.column && lhs.row < rhs.row) { return true; }
+	else { return false; }
+}
+
+inline bool operator== (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION& rhs) {
+	if (lhs.column == rhs.column && lhs.row == rhs.row) { return true; }
+	else { return false; }
+}
+
+inline bool operator!= (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION& rhs) {
+	return !(lhs == rhs);
+}
+
+//Map holds all non-null cells.
+//The use of an associative container rather than a sequential container obviates the need for filler cells in empty positions.
+//CELL_POSITION defines it's own operator< and operator== for use in map sorting.
+//The choice of column sorting preempting row sorting is arbitrary. Either way is fine so long as it is consistent.
+//Note that an "Observer" pattern may be needed in association with cellMap to notify relevant cells when changes occur.
+//Changes may cascade, so notifications may need to specify what changes or which cells are potentially affected.
+extern map<CELL::CELL_POSITION, shared_ptr<CELL>> cellMap;
 
 //A cell that is simply raw text merely outputs its text.
 class TEXT_CELL : public CELL {
@@ -120,4 +120,4 @@ public:
 
 };*/
 
-#endif // !__CELL
+#endif // !__CELL_CLASS
