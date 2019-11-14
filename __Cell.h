@@ -32,8 +32,6 @@ public:
 	public:
 		virtual ~CELL_FACTORY() {}
 		static shared_ptr<CELL> NewCell(CELL_POSITION, wstring);
-	protected:
-		//static shared_ptr<CELL> cell;
 	};
 
 	static CELL_FACTORY cell_factory;
