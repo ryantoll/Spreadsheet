@@ -32,18 +32,22 @@ public:
 	public:
 		virtual ~CELL_FACTORY() {}
 		static shared_ptr<CELL> NewCell(CELL_POSITION, wstring);
+		static void NotifyAll(CELL_POSITION);
 	};
 
 	static CELL_FACTORY cell_factory;
 
 private:
 	wstring rawContent;
+	static multimap<CELL_POSITION, CELL_POSITION> subscriptionMap;		//<Subject, Observers>
 protected:
 	wstring displayValue;
 	bool error{ false };
 	CELL_POSITION position;
 
 	CELL() {}
+	void SubscribeToCell(CELL_POSITION subject);
+	void UnsubscribeFromCell(CELL_POSITION);
 
 	//Sub-classes have read-only access to raw cell content.
 	//Any change in raw content should create/initialize a new CELL through the factory funciton.
@@ -52,8 +56,10 @@ protected:
 public:
 	virtual ~CELL() {}
 	virtual wstring DisplayOutput() { return error ? L"!ERROR!" : displayValue; }
+	virtual wstring DisplayRawContent() { return rawContent; }
 	virtual void InitializeCell() { displayValue = rawContent; }
-	virtual void MoveCell(CELL_POSITION newPosition);
+	virtual bool MoveCell(CELL_POSITION newPosition);
+	virtual void UpdateCell();	//Invoked whenever a cell needs to update it's output.
 };
 
 inline bool operator< (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION& rhs) {
@@ -90,8 +96,15 @@ public:
 class REFERENCE_CELL : public CELL {
 public:
 	//REFERENCE_CELL() = default;
-	virtual ~REFERENCE_CELL() {}
-	wstring DisplayOutput() override { return error ? L"!ERROR!" : cellMap[referencePosition]->DisplayOutput(); }
+	virtual ~REFERENCE_CELL() { UnsubscribeFromCell(referencePosition); }
+	wstring DisplayOutput() override {
+		wstring out;
+		auto itCell = cellMap.find(referencePosition);
+		if (itCell == cellMap.end()) { out = L"!REF!"; }
+		else { out = itCell->second->DisplayOutput(); }
+		return error ? L"!ERROR!" : out;
+		//return error ? L"!ERROR!" : cellMap[referencePosition]->DisplayOutput();
+	}
 	void InitializeCell() override;
 protected:
 	CELL_POSITION referencePosition;

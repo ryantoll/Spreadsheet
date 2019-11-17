@@ -1,0 +1,85 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Source Files\Top-Level Window">
+      <UniqueIdentifier>{e57ad98d-d71d-475d-82e3-d1fc0bfe4201}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Top-Level Window">
+      <UniqueIdentifier>{27b18d7a-5e9e-46b7-bbeb-9327c625e6f0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Table">
+      <UniqueIdentifier>{6f68ca91-58cc-4711-823e-e4c92c07e735}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Table">
+      <UniqueIdentifier>{99b73826-a750-44ed-b6ac-cc819bd1e325}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SpreadsheetApplication.h">
+      <Filter>Header Files\Top-Level Window</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="__Cell.h">
+      <Filter>Header Files\Table</Filter>
+    </ClInclude>
+    <ClInclude Include="__Table.h">
+      <Filter>Header Files\Table</Filter>
+    </ClInclude>
+    <ClInclude Include="Utilities.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SpreadsheetApplication.cpp">
+      <Filter>Source Files\Top-Level Window</Filter>
+    </ClCompile>
+    <ClCompile Include="About.cpp">
+      <Filter>Source Files\Top-Level Window</Filter>
+    </ClCompile>
+    <ClCompile Include="Windows Infrastructure.cpp">
+      <Filter>Source Files\Top-Level Window</Filter>
+    </ClCompile>
+    <ClCompile Include="__Cell.cpp">
+      <Filter>Source Files\Table</Filter>
+    </ClCompile>
+    <ClCompile Include="__Table_Windows_OS.cpp">
+      <Filter>Source Files\Table</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="SpreadsheetApplication.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="small.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="SpreadsheetApplication.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+</Project>

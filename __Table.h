@@ -6,48 +6,63 @@
 
 constexpr const auto TABLE_COMMAND_READ_CELL = 1;
 
-class TABLE;
+class TABLE_BASE;
 
-LRESULT CALLBACK TableWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
-extern TABLE table;
+LRESULT CALLBACK EditBoxProc(HWND hEditBox, UINT message, WPARAM wParam, LPARAM lParam);
+extern unique_ptr<TABLE_BASE> table;
 
-//Note here that class TABLE is inherantly designed with the Windows OS in mind.
-//This OS dependency could be decoupled by making TABLE into an abstract base class.
-//Each OS could then subclass TABLE to implement an appropriate GUI.
-class TABLE {
+//TABLE_BASE is an abstract base class that is specialized for the OS in question.
+//This decouples cell logic from OS dependence and maximizes portability.
+class TABLE_BASE {
+protected:
+	virtual void AddRow() {}
+	virtual void AddColumn() {}
+	virtual void RemoveRow() {}
+	virtual void RemoveColumn() {}
+public:
+	virtual ~TABLE_BASE() {}
+	virtual void DrawTableOutline() {}
+	virtual void Resize() {}
+	virtual void Redraw() {}
+	virtual void UpdateCell(CELL::CELL_POSITION) {}
+};
+
+//Table class specialized for a Windows OS GUI
+class WINDOWS_TABLE : public TABLE_BASE {
 public:
 	class CELL_ID;
 	class CELL_WINDOW;
-private:
-	HWND hParent, hTable, hEntryBar;
-	HWND h_Text_Edit_Bar;
+	friend LRESULT CALLBACK EditBoxProc(HWND hEditBox, UINT message, WPARAM wParam, LPARAM lParam);
+protected:
 	int numColumns{ 0 };
 	int numRows{ 0 };
 	int width{ 75 };
 	int height{ 25 };
 	int x0{ 0 };
 	int y0{ 25 };
-	vector<vector<HWND>> cellHandles;
+	CELL::CELL_POSITION origin{ 0, 0 };		//Origin is the "off-the-begining" cell to the upper-left of the upper-left cell.
 
-	void AddRow();
-	void AddColumn();
-	void RemoveRow();
-	void RemoveColumn();
+	void AddRow() override;
+	void AddColumn() override;
+	void RemoveRow() override;
+	void RemoveColumn() override;
 public:
-	void DrawTableOutline(HWND h);
-	void Resize();
+	void DrawTableOutline() override;
+	void Resize() override;
+	void Redraw() override;
+	void UpdateCell(CELL::CELL_POSITION) override;
 };
 
 //This is a utility class for converting between window IDs and row/column indicies.
 //The purpose here is to be able to encode the cell position in the window ID, which is stored by the Windows OS.
-//This is scoped within the TABLE class to indicate to clients that it's intended usage is only within the context of TABLE usage.
-class TABLE::CELL_ID {
+//This is scoped within the WINDOWS_TABLE class to indicate to clients that it's intended usage is only within the context of WINDOWS_TABLE usage.
+class WINDOWS_TABLE::CELL_ID {
 	CELL::CELL_POSITION position;
 	int windowID{ 0 };
-	void Win_ID_From_Position() { windowID = (position.column << 8) | position.row; }
+	void Win_ID_From_Position() { windowID = (position.column << 8) + position.row; }
 	void Position_From_Win_ID() {
 		position.column = windowID >> 8;
-		position.row = windowID - position.column;
+		position.row = (windowID - position.column * 256);
 	}
 public:
 	CELL_ID(CELL::CELL_POSITION newPosition): position(newPosition) { Win_ID_From_Position(); }
@@ -56,10 +71,12 @@ public:
 	void SetWindowID(int newID) { windowID = newID; Position_From_Win_ID(); }
 	auto& SetRow(const unsigned int newRowIndex) { position.row = newRowIndex; Win_ID_From_Position(); return *this; }
 	auto& SetColumn(const unsigned int newColumnIndex) { position.column = newColumnIndex; Win_ID_From_Position(); return *this; }
+	auto& SetCellPosition(CELL::CELL_POSITION& newPosition) { position = newPosition; Win_ID_From_Position(); return *this; }
 
 	int GetWindowID() { return windowID; }
 	int GetRow() { return position.row; }
 	int GetColumn() { return position.column; }
+	auto GetCellPosition() { return position; }
 };
 
 #endif //!__TABLE_CLASS

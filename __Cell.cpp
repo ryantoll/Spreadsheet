@@ -1,11 +1,19 @@
 #include "stdafx.h"
 #include "__Cell.h"
+#include "__Table.h"
+
+multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> CELL::subscriptionMap = { };
 
 shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring contents) {
 	//Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
 	//but also prevents accidental errors in failing to specify a location.
 	//R == 0 || C == 0 almost certainly indicates a failure to specify one or both arguments.
 	if (position.row == 0 || position.column == 0) { throw invalid_argument("Neither Row 0, nor Column 0 exist."); }
+
+	//Empty contents argument not only fails to create a new cell, but deletes any cell that may already exist at that position.
+	//Notify any observing cells about the change *AFTER* the change has occurred.
+	//(Note that control flow immediately goes to any updating cells.)
+	if (contents == L"") { cellMap.erase(position); NotifyAll(position); return nullptr; }
 
 	shared_ptr<CELL> cell;
 
@@ -34,22 +42,52 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring con
 	try { cell->InitializeCell(); }			//Generic error catching for all cell types.
 	catch (...) { cell->error = true; }		//Failure of any sort will set the cell into an error state.
 
-	cellMap[position] = cell;
+	cellMap[position] = cell;				//Add cell to cell map upon creation.
+	NotifyAll(position);					//Notify any cells that may be observing this position.
 
 	//Factory is entirely done with cell.
 	//Use std::move() to ensure no dangling reference allows for future erroneous alterations.
 	return std::move(cell);
 }
 
-void CELL::MoveCell(CELL_POSITION newPosition) {
+void CELL::CELL_FACTORY::NotifyAll(CELL_POSITION subject) {
+	auto beg = subscriptionMap.lower_bound(subject);
+	auto end = subscriptionMap.upper_bound(subject);
+
+	while (beg != end) {
+		cellMap[beg->second]->UpdateCell();
+		beg++;
+	}
+}
+
+bool CELL::MoveCell(CELL_POSITION newPosition) {
+	if (cellMap.find(newPosition) != cellMap.end()) { return false; }
 	cellMap[newPosition] = cellMap[position];
 	cellMap.erase(position);
 	position = newPosition;
+	return true;
 }
 
+void CELL::SubscribeToCell(CELL_POSITION subject) { subscriptionMap.insert({ subject, position }); }
+
+void CELL::UnsubscribeFromCell(CELL_POSITION subject) {
+	if (subscriptionMap.size() == 0) { return; }
+	auto beg = subscriptionMap.lower_bound(subject);
+	auto end = subscriptionMap.upper_bound(subject);
+
+	//Iterate through all elements with subject as key.
+	//Only erase the one where this cell is the observer.
+	while (beg != end) {		
+		if (beg->second == position) { subscriptionMap.erase(beg); break; }
+		else { beg++; }
+	}
+}
+
+void CELL::UpdateCell() { table->UpdateCell(position); }		//Call update cell on GUI base pointer.
+
 void REFERENCE_CELL::InitializeCell() {
-	auto row_index = rawReader().find_first_of('R');
-	auto col_index = rawReader().find_first_of('C');
+	auto row_index = min(rawReader().find_first_of('R'), rawReader().find_first_of('r'));
+	auto col_index = min(rawReader().find_first_of('C'), rawReader().find_first_of('c'));
 
 	CELL_POSITION pos;
 	
@@ -64,7 +102,8 @@ void REFERENCE_CELL::InitializeCell() {
 		pos.row = stoi(rawReader().substr(row_index + 1));
 	}
 
-	referencePosition;
+	referencePosition = pos;
+	SubscribeToCell(referencePosition);
 }
 
 void NUMERICAL_CELL::InitializeCell() {
