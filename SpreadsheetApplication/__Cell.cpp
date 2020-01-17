@@ -1,0 +1,116 @@
+#include "stdafx.h"
+#include "__Cell.h"
+#include "__Table.h"
+#include <stdexcept>
+
+multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> CELL::subscriptionMap = { };
+
+shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring contents) {
+	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
+	// but also prevents accidental errors in failing to specify a location.
+	// R == 0 || C == 0 almost certainly indicates a failure to specify one or both arguments.
+	if (position.row == 0 || position.column == 0) { throw invalid_argument("Neither Row 0, nor Column 0 exist."); }
+
+	// Empty contents argument not only fails to create a new cell, but deletes any cell that may already exist at that position.
+	// Notify any observing cells about the change *AFTER* the change has occurred.
+	// (Note that control flow immediately goes to any updating cells.)
+	if (contents == L"") { cellMap.erase(position); NotifyAll(position); return nullptr; }
+
+	shared_ptr<CELL> cell;
+
+	wchar_t key = contents[0];
+	switch (key){
+	case L'\'': { cell.reset(new TEXT_CELL()); } break;			// Enforce textual interpretation for format: '__
+	case L'&': { cell.reset(new REFERENCE_CELL()); } break;		// Takes input in the form of: &R__C__ or &C__R__
+	//case '=': { cell.reset(new FUNCTION_CELL()); } break;		// Not yet implemented...
+	case L'.':
+	case L'1':
+	case L'2':
+	case L'3':
+	case L'4':
+	case L'5':
+	case L'6':
+	case L'7':
+	case L'8':
+	case L'9':
+	case L'0': { cell.reset(new NUMERICAL_CELL()); } break;		// Any cell beginning with a number or decimal is a number.
+	default: { cell.reset(new TEXT_CELL()); } break;			// By default, all cells are text cells unless otherwise determined.
+	}
+
+	cell->position = position;
+	cell->rawContent = contents;
+	
+	try { cell->InitializeCell(); }			// Generic error catching for all cell types.
+	catch (...) { cell->error = true; }		// Failure of any sort will set the cell into an error state.
+
+	cellMap[position] = cell;				// Add cell to cell map upon creation.
+	NotifyAll(position);					// Notify any cells that may be observing this position.
+
+	// Factory is entirely done with cell.
+	// Use std::move() to ensure no dangling reference allows for future erroneous alterations.
+	return std::move(cell);
+}
+
+void CELL::CELL_FACTORY::NotifyAll(CELL_POSITION subject) {
+	auto beg = subscriptionMap.lower_bound(subject);
+	auto end = subscriptionMap.upper_bound(subject);
+
+	while (beg != end) {
+		cellMap[beg->second]->UpdateCell();
+		beg++;
+	}
+}
+
+bool CELL::MoveCell(CELL_POSITION newPosition) {
+	if (cellMap.find(newPosition) != cellMap.end()) { return false; }
+	cellMap[newPosition] = cellMap[position];
+	cellMap.erase(position);
+	position = newPosition;
+	return true;
+}
+
+void CELL::SubscribeToCell(CELL_POSITION subject) { subscriptionMap.insert({ subject, position }); }
+
+void CELL::UnsubscribeFromCell(CELL_POSITION subject) {
+	if (subscriptionMap.size() == 0) { return; }
+	auto beg = subscriptionMap.lower_bound(subject);
+	auto end = subscriptionMap.upper_bound(subject);
+
+	// Iterate through all elements with subject as key.
+	// Only erase the one where this cell is the observer.
+	while (beg != end) {		
+		if (beg->second == position) { subscriptionMap.erase(beg); break; }
+		else { beg++; }
+	}
+}
+
+void CELL::UpdateCell() { table->UpdateCell(position); }		// Call update cell on GUI base pointer.
+
+void REFERENCE_CELL::InitializeCell() {
+	auto row_index = min(rawReader().find_first_of('R'), rawReader().find_first_of('r'));
+	auto col_index = min(rawReader().find_first_of('C'), rawReader().find_first_of('c'));
+
+	CELL_POSITION pos;
+	
+	if (col_index > row_index) {
+		auto length = col_index - row_index - 1;
+		pos.row = stoi(rawReader().substr(row_index + 1, length));
+		pos.column = stoi(rawReader().substr(col_index + 1));
+	}
+	else {
+		auto length = row_index - col_index - 1;
+		pos.column = stoi(rawReader().substr(col_index + 1, length));
+		pos.row = stoi(rawReader().substr(row_index + 1));
+	}
+
+	referencePosition = pos;
+	SubscribeToCell(referencePosition);
+}
+
+void NUMERICAL_CELL::InitializeCell() {
+	// Override default error behavior.
+	// Any cell that seems like a number, but cannot be converted to such defaults to text.
+	// Create a new cell at the same position with a prepended text-enforcement character.
+	try { value = stod(rawReader()); }
+	catch (...) { CELL::CELL_FACTORY::NewCell(position, L"'" + rawReader()); }
+}
