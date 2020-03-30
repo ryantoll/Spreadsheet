@@ -83,7 +83,7 @@ inline bool operator!= (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITIO
 // The choice of column sorting preempting row sorting is arbitrary. Either way is fine so long as it is consistent.
 // Note that an "Observer" pattern may be needed in association with cellMap to notify relevant cells when changes occur.
 // Changes may cascade, so notifications may need to specify what changes or which cells are potentially affected.
-extern map<CELL::CELL_POSITION, shared_ptr<CELL>> cellMap;
+inline map<CELL::CELL_POSITION, shared_ptr<CELL>> cellMap;
 
 // A cell that is simply raw text merely outputs its text.
 class TEXT_CELL : public CELL {
