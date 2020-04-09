@@ -3,7 +3,8 @@
 #include "__Table.h"
 #include <stdexcept>
 
-multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> CELL::subscriptionMap = { };
+//multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> CELL::subscriptionMap = { }; 		//<Subject, Observers>
+multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> subscriptionMap = { }; 		//<Subject, Observers>
 
 shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring contents) {
 	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
@@ -22,7 +23,7 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring con
 	switch (key){
 	case L'\'': { cell.reset(new TEXT_CELL()); } break;			// Enforce textual interpretation for format: '__
 	case L'&': { cell.reset(new REFERENCE_CELL()); } break;		// Takes input in the form of: &R__C__ or &C__R__
-	//case '=': { cell.reset(new FUNCTION_CELL()); } break;		// Not yet implemented...
+	case '=': { cell.reset(new FUNCTION_CELL()); } break;		// Not yet implemented...
 	case L'.':
 	case L'1':
 	case L'2':
@@ -56,7 +57,8 @@ void CELL::CELL_FACTORY::NotifyAll(CELL_POSITION subject) {
 	auto end = subscriptionMap.upper_bound(subject);
 
 	while (beg != end) {
-		cellMap[beg->second]->UpdateCell();
+		try { cellMap[beg->second]->UpdateCell(); }
+		catch (...) {}	// May throw when closing program. Irrelevant except that we don't want the program to crash on exit.
 		beg++;
 	}
 }
@@ -86,6 +88,9 @@ void CELL::UnsubscribeFromCell(CELL_POSITION subject) {
 
 void CELL::UpdateCell() { table->UpdateCell(position); }		// Call update cell on GUI base pointer.
 
+// Parese string into Row & Column positions of reference cell
+// Parsing allows for either ordering and is not case-sensitive
+// Subscribe to updates on referenced cell once it's position is determined
 void REFERENCE_CELL::InitializeCell() {
 	auto row_index = min(rawReader().find_first_of('R'), rawReader().find_first_of('r'));
 	auto col_index = min(rawReader().find_first_of('C'), rawReader().find_first_of('c'));
@@ -113,4 +118,86 @@ void NUMERICAL_CELL::InitializeCell() {
 	// Create a new cell at the same position with a prepended text-enforcement character.
 	try { value = stod(rawReader()); }
 	catch (...) { CELL::CELL_FACTORY::NewCell(position, L"'" + rawReader()); }
+}
+
+FUNCTION_CELL::ARGUMENT FUNCTION_CELL::ParseFunctionString(wstring& inputText) {
+	// Add "clear white space" operation
+	// Add "clear brackets" operation
+
+	if (isalpha(inputText[0])) { /*Convert function name*/ 
+		auto n = 0;
+		while (isalpha(inputText[n])) { ++n; }
+		auto funcName = inputText.substr(0, n);
+		inputText.erase(0, n);
+		// Create approprate function cell from function name
+		// Call new parsing operation to fill out function arguments
+		auto func = FUNCTION_CELL::SUM();	// Placeholder for return value
+		return func;
+	}
+	else if (inputText[0] == '&') { /*Convert reference*/ 
+		// Literally copied from reference cell initiation. Consider unifying into one funciton for ease of maintainance.
+		auto row_index = min(rawReader().find_first_of('R'), rawReader().find_first_of('r'));
+		auto col_index = min(rawReader().find_first_of('C'), rawReader().find_first_of('c'));
+
+		CELL_POSITION pos;
+
+		if (col_index > row_index) {
+			auto length = col_index - row_index - 1;
+			pos.row = stoi(rawReader().substr(row_index + 1, length));
+			pos.column = stoi(rawReader().substr(col_index + 1));
+		}
+		else {
+			auto length = row_index - col_index - 1;
+			pos.column = stoi(rawReader().substr(col_index + 1, length));
+			pos.row = stoi(rawReader().substr(row_index + 1));
+		}
+
+		auto referencePosition = pos;
+		SubscribeToCell(referencePosition);
+		return REFERENCE_ARGUMENT(pos);
+	}
+	else if (isdigit(inputText[0])) { /*Convert to value*/ 
+		auto n = 0;
+		while (isdigit(inputText[n])) { ++n; }
+		auto num = inputText.substr(0, n);
+		inputText.erase(0, n);
+		return FUNCTION_CELL::VALUE_ARGUMENT(stod(num));	// wstring -> double -> Value Argument
+	}
+	else { throw invalid_argument("Error parsing input text."); }	/*Set error flag*/
+}
+
+// Parse function text into actual functions.
+void FUNCTION_CELL::InitializeCell() {
+	auto inputText = rawReader().substr(1);
+	ParseFunctionString(inputText);		// Recursively parse input string
+}
+
+void FUNCTION_CELL::FUNCTION::Function(vector<FUNCTION_CELL::ARGUMENT> input) {
+	auto p = promise<double>{};
+	val = p.get_future();
+	p.set_value(Arguments.begin()->val.get());		// By default, assume a single argument and simply grab its value
+}
+
+FUNCTION_CELL::VALUE_ARGUMENT::VALUE_ARGUMENT(double arg) {
+	auto p = promise<double>{};
+	val = p.get_future();
+	p.set_value(arg);
+}
+
+// May throw
+// Look up value upon creation
+FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(CELL_POSITION pos) : referencePosition(pos) {
+	auto p = promise<double>{};
+	val = p.get_future();
+	p.set_value(stod(cellMap.at(pos)->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
+}
+
+void FUNCTION_CELL::SUM::Function(vector<FUNCTION_CELL::ARGUMENT> input) {
+	//val = async(std::launch::async | std::launch::deferred, [&input] { return std::accumulate(input.begin(), input.end(), 0.0); });
+	val = async(std::launch::async | std::launch::deferred, [&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += i->val.get(); }  return sum; });
+}
+
+void FUNCTION_CELL::AVERAGE::Function(vector<FUNCTION_CELL::ARGUMENT> input) {
+	//val = async(std::launch::async | std::launch::deferred, [&input] { return std::accumulate(input.begin(), input.end(), 0.0) / input.size(); });
+	val = async(std::launch::async | std::launch::deferred, [&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += i->val.get(); }  return sum / input.size(); });
 }

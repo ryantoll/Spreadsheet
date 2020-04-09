@@ -8,8 +8,8 @@ constexpr const auto TABLE_COMMAND_READ_CELL = 1;
 
 class TABLE_BASE;
 
-LRESULT CALLBACK EditBoxProc(HWND hEditBox, UINT message, WPARAM wParam, LPARAM lParam);
-extern unique_ptr<TABLE_BASE> table;
+//LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
+inline unique_ptr<TABLE_BASE> table;
 
 // TABLE_BASE is an abstract base class that is specialized for the OS in question.
 // This decouples cell logic from OS dependence and maximizes portability.
@@ -32,7 +32,8 @@ class WINDOWS_TABLE : public TABLE_BASE {
 public:
 	class CELL_ID;
 	class CELL_WINDOW;
-	friend LRESULT CALLBACK EditBoxProc(HWND hEditBox, UINT message, WPARAM wParam, LPARAM lParam);
+	friend LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
+	friend LRESULT CALLBACK EntryBarWindowProc(HWND, UINT, WPARAM, LPARAM);
 protected:
 	int numColumns{ 0 };
 	int numRows{ 0 };
