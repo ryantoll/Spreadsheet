@@ -14,6 +14,9 @@
 #include "stdafx.h"
 #include <map>
 #include <string>
+#include <algorithm>
+#include <numeric>
+#include <future>
 using namespace std;
 
 // Base class for all cells.
@@ -39,7 +42,7 @@ public:
 
 private:
 	wstring rawContent;
-	static multimap<CELL_POSITION, CELL_POSITION> subscriptionMap;		//<Subject, Observers>
+	//static multimap<CELL_POSITION, CELL_POSITION> subscriptionMap;		//<Subject, Observers>
 protected:
 	wstring displayValue;
 	bool error{ false };
@@ -112,23 +115,60 @@ protected:
 
 // A base class for all cells that contains numbers.
 class NUMERICAL_CELL : public CELL {
+protected:
 	double value{ 0 };
-	//DISPLAY_PARAMETERS parameters;		// Add criteria for textual representation of value.
+	//DISPLAY_PARAMETERS parameters;		// Add criteria for textual representation of value. (Ex. 1 vs. 1.0000 vs. $1.00, etc.)
 public:
 	virtual ~NUMERICAL_CELL() {}
 	wstring DisplayOutput() override { return std::to_wstring(value); }
 	void InitializeCell() override;
 };
 
-// A cell that contains one or more FUNCTION.
-// FUNCTION will utilize the "Strategy" pattern to support numerous function types.
+// A cell that contains one or more FUNCTION(s).
+// FUNCTION will utilize the "Strategy" pattern to support numerous function types by specializing the base FUNCTION type for each function used.
 // FUNCTION_CELL will utilize the "Composite" pattern to treat singular and aggregate FUNCTIONS uniformly.
-/*class FUNCTION_CELL : public NUMERICAL_CELL {
-protected:
-
+// Alternatively, FUNCTION could simply store a function pointer that stores the appropriate function at runtime based upon function name lookup.
+// Each function must have the same call signature to fit in the same pointer object (taking a vector of ARGUMENTS and storing a double).
+// The sub-classing option is used here to comport with the broader goal of demonstrating established Object-oriented design patterns.
+// This alternate strategy is shown in comments for completeness.
+class FUNCTION_CELL : public NUMERICAL_CELL {
 public:
 	virtual ~FUNCTION_CELL() {}
+	void InitializeCell() override;
+	void UpdateCell() override { }		// Need to add recalculate logic here for when reference cells update
 
-};*/
+	struct ARGUMENT {
+		future<double> val;
+	};
+
+	struct FUNCTION: public ARGUMENT {
+		vector<ARGUMENT> Arguments;
+		//double (*funPTR) (vector<ARGUMENT>);			// Alternate to subclassing, just assign a function to this pointer at runtime.
+		virtual void Function(vector<ARGUMENT>);		// Each sub-class overrides this function to implement its own functionallity
+		bool calculationComplete{ false };
+		bool error{ false };
+	};
+
+	struct VALUE_ARGUMENT : public ARGUMENT {
+		explicit VALUE_ARGUMENT(double);
+	};
+
+	struct REFERENCE_ARGUMENT : public ARGUMENT {
+		REFERENCE_ARGUMENT(CELL_POSITION pos);
+		CELL_POSITION referencePosition;
+	};
+
+protected:
+	vector<ARGUMENT> Arguments;
+	FUNCTION function;
+
+	FUNCTION_CELL::ARGUMENT ParseFunctionString(wstring&);
+
+	/*////////////////////////////////////////////////////////////
+	// List of available operations overriding Function
+	*/////////////////////////////////////////////////////////////
+	struct SUM : public FUNCTION { void Function(vector<ARGUMENT> input) override; };
+	struct AVERAGE : public FUNCTION { void Function(vector<ARGUMENT> input) override; };
+};
 
 #endif // !__CELL_CLASS
