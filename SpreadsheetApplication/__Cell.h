@@ -49,6 +49,7 @@ protected:
 	CELL_POSITION position;
 
 	CELL() {}
+
 	void SubscribeToCell(CELL_POSITION subject);
 	void UnsubscribeFromCell(CELL_POSITION);
 
@@ -116,11 +117,11 @@ protected:
 // A base class for all cells that contains numbers.
 class NUMERICAL_CELL : public CELL {
 protected:
-	double value{ 0 };
+	double storedValue{ 0 };
 	//DISPLAY_PARAMETERS parameters;		// Add criteria for textual representation of value. (Ex. 1 vs. 1.0000 vs. $1.00, etc.)
 public:
 	virtual ~NUMERICAL_CELL() {}
-	wstring DisplayOutput() override { return std::to_wstring(value); }
+	wstring DisplayOutput() override { return error ? L"!ERROR!" : std::to_wstring(storedValue); }
 	void InitializeCell() override;
 };
 
@@ -144,7 +145,7 @@ public:
 	struct FUNCTION: public ARGUMENT {
 		vector<ARGUMENT> Arguments;
 		//double (*funPTR) (vector<ARGUMENT>);			// Alternate to subclassing, just assign a function to this pointer at runtime.
-		virtual void Function(vector<ARGUMENT>);		// Each sub-class overrides this function to implement its own functionallity
+		virtual void Function();						// Each sub-class overrides this function to implement its own functionallity
 		bool calculationComplete{ false };
 		bool error{ false };
 	};
@@ -159,16 +160,15 @@ public:
 	};
 
 protected:
-	vector<ARGUMENT> Arguments;
-	FUNCTION function;
+	FUNCTION func;
 
 	FUNCTION_CELL::ARGUMENT ParseFunctionString(wstring&);
-
+public:
 	/*////////////////////////////////////////////////////////////
 	// List of available operations overriding Function
 	*/////////////////////////////////////////////////////////////
-	struct SUM : public FUNCTION { void Function(vector<ARGUMENT> input) override; };
-	struct AVERAGE : public FUNCTION { void Function(vector<ARGUMENT> input) override; };
+	struct SUM : public FUNCTION { void Function() override; };
+	struct AVERAGE : public FUNCTION { void Function() override; };
 };
 
 #endif // !__CELL_CLASS
