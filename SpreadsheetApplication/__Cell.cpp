@@ -116,7 +116,7 @@ void NUMERICAL_CELL::InitializeCell() {
 	// Override default error behavior.
 	// Any cell that seems like a number, but cannot be converted to such defaults to text.
 	// Create a new cell at the same position with a prepended text-enforcement character.
-	try { value = stod(rawReader()); }
+	try { storedValue = stod(rawReader()); }
 	catch (...) { CELL::CELL_FACTORY::NewCell(position, L"'" + rawReader()); }
 }
 
@@ -136,25 +136,25 @@ FUNCTION_CELL::ARGUMENT FUNCTION_CELL::ParseFunctionString(wstring& inputText) {
 	}
 	else if (inputText[0] == '&') { /*Convert reference*/ 
 		// Literally copied from reference cell initiation. Consider unifying into one funciton for ease of maintainance.
-		auto row_index = min(rawReader().find_first_of('R'), rawReader().find_first_of('r'));
-		auto col_index = min(rawReader().find_first_of('C'), rawReader().find_first_of('c'));
+		auto row_index = min(inputText.find_first_of('R'), inputText.find_first_of('r'));
+		auto col_index = min(inputText.find_first_of('C'), inputText.find_first_of('c'));
 
-		CELL_POSITION pos;
+		CELL::CELL_POSITION pos;
 
 		if (col_index > row_index) {
 			auto length = col_index - row_index - 1;
-			pos.row = stoi(rawReader().substr(row_index + 1, length));
-			pos.column = stoi(rawReader().substr(col_index + 1));
+			pos.row = stoi(inputText.substr(row_index + 1, length));
+			pos.column = stoi(inputText.substr(col_index + 1));
 		}
 		else {
 			auto length = row_index - col_index - 1;
-			pos.column = stoi(rawReader().substr(col_index + 1, length));
-			pos.row = stoi(rawReader().substr(row_index + 1));
+			pos.column = stoi(inputText.substr(col_index + 1, length));
+			pos.row = stoi(inputText.substr(row_index + 1));
 		}
 
 		auto referencePosition = pos;
 		SubscribeToCell(referencePosition);
-		return REFERENCE_ARGUMENT(pos);
+		return FUNCTION_CELL::REFERENCE_ARGUMENT(pos);
 	}
 	else if (isdigit(inputText[0])) { /*Convert to value*/ 
 		auto n = 0;
@@ -169,10 +169,12 @@ FUNCTION_CELL::ARGUMENT FUNCTION_CELL::ParseFunctionString(wstring& inputText) {
 // Parse function text into actual functions.
 void FUNCTION_CELL::InitializeCell() {
 	auto inputText = rawReader().substr(1);
-	ParseFunctionString(inputText);		// Recursively parse input string
+	func.Arguments.push_back(ParseFunctionString(inputText));		// Recursively parse input string
+	func.Function();
+	storedValue = func.val.get();
 }
 
-void FUNCTION_CELL::FUNCTION::Function(vector<FUNCTION_CELL::ARGUMENT> input) {
+void FUNCTION_CELL::FUNCTION::Function() {
 	auto p = promise<double>{};
 	val = p.get_future();
 	p.set_value(Arguments.begin()->val.get());		// By default, assume a single argument and simply grab its value
@@ -192,12 +194,14 @@ FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(CELL_POSITION pos) : refer
 	p.set_value(stod(cellMap.at(pos)->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
 }
 
-void FUNCTION_CELL::SUM::Function(vector<FUNCTION_CELL::ARGUMENT> input) {
+void FUNCTION_CELL::SUM::Function() {
 	//val = async(std::launch::async | std::launch::deferred, [&input] { return std::accumulate(input.begin(), input.end(), 0.0); });
+	auto& input = Arguments;
 	val = async(std::launch::async | std::launch::deferred, [&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += i->val.get(); }  return sum; });
 }
 
-void FUNCTION_CELL::AVERAGE::Function(vector<FUNCTION_CELL::ARGUMENT> input) {
+void FUNCTION_CELL::AVERAGE::Function() {
 	//val = async(std::launch::async | std::launch::deferred, [&input] { return std::accumulate(input.begin(), input.end(), 0.0) / input.size(); });
+	auto& input = Arguments;
 	val = async(std::launch::async | std::launch::deferred, [&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += i->val.get(); }  return sum / input.size(); });
 }

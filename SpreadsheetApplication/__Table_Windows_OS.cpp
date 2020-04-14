@@ -26,11 +26,11 @@ void WINDOWS_TABLE::DrawTableOutline() {
 }
 
 bool CreateNewCell(HWND hMostRecentCell, wstring rawInput) {
-	/*temporary bug fix*/	auto oldContent = Edit_Box_to_Wstring(h_Text_Edit_Bar);
+	///*temporary bug fix*/	auto oldContent = Edit_Box_to_Wstring(h_Text_Edit_Bar);
 	SetWindowText(h_Text_Edit_Bar, L"");											// Clear entry bar.
 	auto id = WINDOWS_TABLE::CELL_ID(GetDlgCtrlID(hMostRecentCell));
-	/*temporary bug fix*/	auto itCell = cellMap.find(id.GetCellPosition());
-	/*temporary bug fix*/	if (rawInput != L"" && itCell != cellMap.end() && itCell->second->DisplayRawContent() == oldContent) { return false; }
+	///*temporary bug fix*/	auto itCell = cellMap.find(id.GetCellPosition());
+	///*temporary bug fix*/	if (rawInput != L"" && itCell != cellMap.end() && itCell->second->DisplayRawContent() == oldContent) { return false; }
 	auto cell = CELL::cell_factory.NewCell(id.GetCellPosition(), rawInput);
 	if (!cell) { return false; }													// Exit if no new cell is created.
 	SetWindowText(hMostRecentCell, cell->DisplayOutput().c_str());					// Otherwise, update cell content.
