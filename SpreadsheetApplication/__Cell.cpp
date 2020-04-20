@@ -3,8 +3,10 @@
 #include "__Table.h"
 #include <stdexcept>
 
-//multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> CELL::subscriptionMap = { }; 		//<Subject, Observers>
-multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> subscriptionMap = { }; 		//<Subject, Observers>
+//multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> CELL::subscriptionMap = { }; 	//<Subject, Observers>
+multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> subscriptionMap{ }; 				//<Subject, Observers>
+
+map<wstring, FUNCTION_CELL::FUNCTION> functionNameMap{ {L"SUM", FUNCTION_CELL::SUM()}, {L"AVERAGE", FUNCTION_CELL::AVERAGE()} };
 
 shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring contents) {
 	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
@@ -120,6 +122,15 @@ void NUMERICAL_CELL::InitializeCell() {
 	catch (...) { CELL::CELL_FACTORY::NewCell(position, L"'" + rawReader()); }
 }
 
+FUNCTION_CELL::FUNCTION MatchNameToFunction(wstring& inputText) {
+	//return functionNameMap.find(inputText)->second;
+	return FUNCTION_CELL::SUM();
+}
+
+// As I write this, I realize how complicated this parsing can become.
+// This approach may get overly cumbersome once I account for operators (+,-,*,/) as well as ordering parentheses.
+// I have seen other parsing solutions on a superficial level and they break down the text into "token" objects.
+// I may need to rework this in a more object-oriented solution to make it easier to conceptualize the various complexities.
 FUNCTION_CELL::ARGUMENT FUNCTION_CELL::ParseFunctionString(wstring& inputText) {
 	// Add "clear white space" operation
 	// Add "clear brackets" operation
@@ -129,9 +140,27 @@ FUNCTION_CELL::ARGUMENT FUNCTION_CELL::ParseFunctionString(wstring& inputText) {
 		while (isalpha(inputText[n])) { ++n; }
 		auto funcName = inputText.substr(0, n);
 		inputText.erase(0, n);
+
 		// Create approprate function cell from function name
 		// Call new parsing operation to fill out function arguments
-		auto func = FUNCTION_CELL::SUM();	// Placeholder for return value
+		//auto func = FUNCTION_CELL::SUM();	// Placeholder for return value
+
+		auto func = MatchNameToFunction(funcName);
+		if (!ClearEnclosingChars(L'(', L')', inputText)) { throw invalid_argument("Error parsing input text. \nParentheses mismatch."); }
+
+		// Segment text within parentheses into segments deliniated by commas
+		// This will fill the vector of ARGUMENTS used for function input parameters
+		vector<wstring> argSegments;
+		n = inputText.find_first_of(L',');
+		while (n != wstring::npos) {
+			argSegments.push_back(inputText.substr(0, n));
+			inputText.erase(0, n + 1);
+			n = inputText.find_first_of(L',');
+		}
+		argSegments.push_back(inputText.substr(0, n));
+
+		for (auto arg : argSegments) { func.Arguments.push_back(ParseFunctionString(arg)); }	// For each segment, build it into an argument recursively
+
 		return func;
 	}
 	else if (inputText[0] == '&') { /*Convert reference*/ 

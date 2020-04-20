@@ -33,3 +33,19 @@ inline wstring Edit_Box_to_Wstring(const HWND h) {
 
 	return output_C_string.get();
 }
+
+// Tool used for parsing text.
+// Tests for enclosing chars and clears them out. Returns bool indicating success/failure.
+inline bool ClearEnclosingChars(const char c1, const char c2, string& s) {
+	if (s[0] != c1 || s[s.size() - 1] != c2) { return false; }
+	s.erase(0, 1);
+	s.erase(s.size() - 1);
+	return true;
+}
+
+inline bool ClearEnclosingChars(const wchar_t c1, const wchar_t c2, wstring& s) {
+	if (s[0] != c1 || s[s.size() - 1] != c2) { return false; }
+	s.erase(0, 1);
+	s.erase(s.size() - 1);
+	return true;
+}

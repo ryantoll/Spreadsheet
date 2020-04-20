@@ -140,14 +140,37 @@ public:
 
 	struct ARGUMENT {
 		future<double> val;
+
+		ARGUMENT() = default;
+		virtual ~ARGUMENT() = default;
+		virtual ARGUMENT& operator=(const ARGUMENT& arg) { if (arg.val.valid()) { auto p = promise<double>{}; val = p.get_future(); p.set_value(arg.val._Get_value()); } return *this; }
+		ARGUMENT(const ARGUMENT& arg) { if (arg.val.valid()) { auto p = promise<double>{}; val = p.get_future(); p.set_value(arg.val._Get_value()); } }
 	};
 
 	struct FUNCTION: public ARGUMENT {
+		//FUNCTION() = default;
+		//~FUNCTION() = default;
 		vector<ARGUMENT> Arguments;
 		//double (*funPTR) (vector<ARGUMENT>);			// Alternate to subclassing, just assign a function to this pointer at runtime.
 		virtual void Function();						// Each sub-class overrides this function to implement its own functionallity
 		bool calculationComplete{ false };
 		bool error{ false };
+
+		// Copy & Copy constructor
+		// The future held in the ARGUMENT portion of the FUNCTION prevents generation of default copy operations
+		// If the future has a value, copy that over, otherwise recalculate it when needed
+		/*FUNCTION& operator=(const FUNCTION& f) {
+			Arguments = f.Arguments;
+			calculationComplete = f.calculationComplete;
+			error = f.error;
+			//if (f.val.valid) { auto p = promise<double>{}; val = p.get_future(); p.set_value(f.val.get()); }		// Copy value if already calculated.
+			return *this;
+		}
+
+		FUNCTION(const FUNCTION& f): 
+			Arguments(f.Arguments), calculationComplete(f.calculationComplete), error(f.error) {
+			//if (f.val.valid) { auto p = promise<double>{}; val = p.get_future(); p.set_value(f.val.get()); }		// Copy value if already calculated.
+		}*/
 	};
 
 	struct VALUE_ARGUMENT : public ARGUMENT {
