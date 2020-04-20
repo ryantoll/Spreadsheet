@@ -206,6 +206,10 @@ public:
 	*/////////////////////////////////////////////////////////////
 	struct SUM : public FUNCTION { void Function() override; };
 	struct AVERAGE : public FUNCTION { void Function() override; };
+	struct PRODUCT : public FUNCTION { void Function() override; };
+	struct INVERSE : public FUNCTION { void Function() override; };
+	struct RECIPROCAL : public FUNCTION { void Function() override; };
+	struct PI : public FUNCTION { void Function() override; };
 };
 
 #endif // !__CELL_CLASS
