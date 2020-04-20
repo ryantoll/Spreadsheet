@@ -6,7 +6,7 @@
 //multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> CELL::subscriptionMap = { }; 	//<Subject, Observers>
 multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> subscriptionMap{ }; 				//<Subject, Observers>
 
-map<wstring, FUNCTION_CELL::FUNCTION> functionNameMap{ {L"SUM", FUNCTION_CELL::SUM()}, {L"AVERAGE", FUNCTION_CELL::AVERAGE()} };
+//map<wstring, shared_ptr<FUNCTION_CELL::FUNCTION>> functionNameMap{ {wstring(L"SUM"), shared_ptr<FUNCTION_CELL::SUM>()}, {wstring(L"AVERAGE"), shared_ptr<FUNCTION_CELL::AVERAGE>()} };
 
 shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring contents) {
 	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
@@ -122,16 +122,20 @@ void NUMERICAL_CELL::InitializeCell() {
 	catch (...) { CELL::CELL_FACTORY::NewCell(position, L"'" + rawReader()); }
 }
 
-FUNCTION_CELL::FUNCTION MatchNameToFunction(wstring& inputText) {
+shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(wstring& inputText) {
 	//return functionNameMap.find(inputText)->second;
-	return FUNCTION_CELL::SUM();
+	//return make_shared<FUNCTION_CELL::SUM>();
+	
+	if (inputText == L"SUM") { return make_shared<FUNCTION_CELL::SUM>(); }
+	else if (inputText == L"AVERAGE") { return make_shared<FUNCTION_CELL::AVERAGE>(); }
+
 }
 
 // As I write this, I realize how complicated this parsing can become.
 // This approach may get overly cumbersome once I account for operators (+,-,*,/) as well as ordering parentheses.
 // I have seen other parsing solutions on a superficial level and they break down the text into "token" objects.
 // I may need to rework this in a more object-oriented solution to make it easier to conceptualize the various complexities.
-FUNCTION_CELL::ARGUMENT FUNCTION_CELL::ParseFunctionString(wstring& inputText) {
+shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(wstring& inputText) {
 	// Add "clear white space" operation
 	// Add "clear brackets" operation
 
@@ -145,11 +149,13 @@ FUNCTION_CELL::ARGUMENT FUNCTION_CELL::ParseFunctionString(wstring& inputText) {
 		// Call new parsing operation to fill out function arguments
 		//auto func = FUNCTION_CELL::SUM();	// Placeholder for return value
 
-		auto func = MatchNameToFunction(funcName);
+		auto func = MatchNameToFunction(funcName); func->Arguments.clear();
 		if (!ClearEnclosingChars(L'(', L')', inputText)) { throw invalid_argument("Error parsing input text. \nParentheses mismatch."); }
 
 		// Segment text within parentheses into segments deliniated by commas
 		// This will fill the vector of ARGUMENTS used for function input parameters
+		// Needs more work to sort out nested function arguments
+		// Always grabs next comma even if it's from a nested function
 		vector<wstring> argSegments;
 		n = inputText.find_first_of(L',');
 		while (n != wstring::npos) {
@@ -159,8 +165,8 @@ FUNCTION_CELL::ARGUMENT FUNCTION_CELL::ParseFunctionString(wstring& inputText) {
 		}
 		argSegments.push_back(inputText.substr(0, n));
 
-		for (auto arg : argSegments) { func.Arguments.push_back(ParseFunctionString(arg)); }	// For each segment, build it into an argument recursively
-
+		for (auto arg : argSegments) { func->Arguments.push_back(ParseFunctionString(arg)); }	// For each segment, build it into an argument recursively
+		func->Function();																		// Associate future with result of function
 		return func;
 	}
 	else if (inputText[0] == '&') { /*Convert reference*/ 
@@ -183,14 +189,14 @@ FUNCTION_CELL::ARGUMENT FUNCTION_CELL::ParseFunctionString(wstring& inputText) {
 
 		auto referencePosition = pos;
 		SubscribeToCell(referencePosition);
-		return FUNCTION_CELL::REFERENCE_ARGUMENT(pos);
+		return make_shared<FUNCTION_CELL::REFERENCE_ARGUMENT>(pos);
 	}
 	else if (isdigit(inputText[0])) { /*Convert to value*/ 
 		auto n = 0;
 		while (isdigit(inputText[n])) { ++n; }
 		auto num = inputText.substr(0, n);
 		inputText.erase(0, n);
-		return FUNCTION_CELL::VALUE_ARGUMENT(stod(num));	// wstring -> double -> Value Argument
+		return make_shared<FUNCTION_CELL::VALUE_ARGUMENT>(stod(num));	// wstring -> double -> Value Argument
 	}
 	else { throw invalid_argument("Error parsing input text."); }	/*Set error flag*/
 }
@@ -199,14 +205,14 @@ FUNCTION_CELL::ARGUMENT FUNCTION_CELL::ParseFunctionString(wstring& inputText) {
 void FUNCTION_CELL::InitializeCell() {
 	auto inputText = rawReader().substr(1);
 	func.Arguments.push_back(ParseFunctionString(inputText));		// Recursively parse input string
-	func.Function();
+	func.Function();												// Associate future with result of function
 	storedValue = func.val.get();
 }
 
 void FUNCTION_CELL::FUNCTION::Function() {
 	auto p = promise<double>{};
 	val = p.get_future();
-	p.set_value(Arguments.begin()->val.get());		// By default, assume a single argument and simply grab its value
+	p.set_value((*Arguments.begin())->val.get());		// By default, assume a single argument and simply grab its value
 }
 
 FUNCTION_CELL::VALUE_ARGUMENT::VALUE_ARGUMENT(double arg) {
@@ -226,11 +232,11 @@ FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(CELL_POSITION pos) : refer
 void FUNCTION_CELL::SUM::Function() {
 	//val = async(std::launch::async | std::launch::deferred, [&input] { return std::accumulate(input.begin(), input.end(), 0.0); });
 	auto& input = Arguments;
-	val = async(std::launch::async | std::launch::deferred, [&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += i->val.get(); }  return sum; });
+	val = async(std::launch::async | std::launch::deferred, [&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->val.get(); }  return sum; });
 }
 
 void FUNCTION_CELL::AVERAGE::Function() {
 	//val = async(std::launch::async | std::launch::deferred, [&input] { return std::accumulate(input.begin(), input.end(), 0.0) / input.size(); });
 	auto& input = Arguments;
-	val = async(std::launch::async | std::launch::deferred, [&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += i->val.get(); }  return sum / input.size(); });
+	val = async(std::launch::async | std::launch::deferred, [&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->val.get(); }  return sum / input.size(); });
 }

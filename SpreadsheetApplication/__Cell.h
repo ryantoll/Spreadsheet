@@ -142,15 +142,15 @@ public:
 		future<double> val;
 
 		ARGUMENT() = default;
-		virtual ~ARGUMENT() = default;
+		/*virtual ~ARGUMENT() = default;
 		virtual ARGUMENT& operator=(const ARGUMENT& arg) { if (arg.val.valid()) { auto p = promise<double>{}; val = p.get_future(); p.set_value(arg.val._Get_value()); } return *this; }
-		ARGUMENT(const ARGUMENT& arg) { if (arg.val.valid()) { auto p = promise<double>{}; val = p.get_future(); p.set_value(arg.val._Get_value()); } }
+		ARGUMENT(const ARGUMENT& arg) { if (arg.val.valid()) { auto p = promise<double>{}; val = p.get_future(); p.set_value(arg.val._Get_value()); } }*/
 	};
 
 	struct FUNCTION: public ARGUMENT {
 		//FUNCTION() = default;
 		//~FUNCTION() = default;
-		vector<ARGUMENT> Arguments;
+		vector<shared_ptr<ARGUMENT>> Arguments;
 		//double (*funPTR) (vector<ARGUMENT>);			// Alternate to subclassing, just assign a function to this pointer at runtime.
 		virtual void Function();						// Each sub-class overrides this function to implement its own functionallity
 		bool calculationComplete{ false };
@@ -175,6 +175,20 @@ public:
 
 	struct VALUE_ARGUMENT : public ARGUMENT {
 		explicit VALUE_ARGUMENT(double);
+		/*~VALUE_ARGUMENT() = default;
+		VALUE_ARGUMENT& operator=(const VALUE_ARGUMENT& arg) {
+			if (!arg.val.valid()) { return *this; }
+			auto p = promise<double>{};
+			val = p.get_future();
+			p.set_value(arg.val._Get_value());
+			return *this;
+		}
+		VALUE_ARGUMENT(const VALUE_ARGUMENT& arg) {
+			if (!arg.val.valid()) { return; }
+			auto p = promise<double>{};
+			val = p.get_future();
+			p.set_value(arg.val._Get_value());
+		}*/
 	};
 
 	struct REFERENCE_ARGUMENT : public ARGUMENT {
@@ -185,7 +199,7 @@ public:
 protected:
 	FUNCTION func;
 
-	FUNCTION_CELL::ARGUMENT ParseFunctionString(wstring&);
+	shared_ptr<FUNCTION_CELL::ARGUMENT> ParseFunctionString(wstring&);
 public:
 	/*////////////////////////////////////////////////////////////
 	// List of available operations overriding Function
