@@ -122,13 +122,19 @@ void NUMERICAL_CELL::InitializeCell() {
 	catch (...) { CELL::CELL_FACTORY::NewCell(position, L"'" + rawReader()); }
 }
 
+// I'm not sure how best to implement this mapping of text to function objects
 shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(wstring& inputText) {
 	//return functionNameMap.find(inputText)->second;
 	//return make_shared<FUNCTION_CELL::SUM>();
 	
 	if (inputText == L"SUM") { return make_shared<FUNCTION_CELL::SUM>(); }
 	else if (inputText == L"AVERAGE") { return make_shared<FUNCTION_CELL::AVERAGE>(); }
-
+	else if (inputText == L"PRODUCT") { return make_shared<FUNCTION_CELL::PRODUCT>(); }
+	else if (inputText == L"INVERSE") { return make_shared<FUNCTION_CELL::INVERSE>(); }
+	else if (inputText == L"RECIPROCAL") { return make_shared<FUNCTION_CELL::RECIPROCAL>(); }
+	else if (inputText == L"PI") { return make_shared<FUNCTION_CELL::PI>(); }
+	else { return make_shared<FUNCTION_CELL::FUNCTION>(); }
+	
 }
 
 // As I write this, I realize how complicated this parsing can become.
@@ -230,13 +236,43 @@ FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(CELL_POSITION pos) : refer
 }
 
 void FUNCTION_CELL::SUM::Function() {
-	//val = async(std::launch::async | std::launch::deferred, [&input] { return std::accumulate(input.begin(), input.end(), 0.0); });
+	if (Arguments.size() == 0) { throw invalid_argument("Error parsing input text.\nNo arguments provided."); }
 	auto& input = Arguments;
 	val = async(std::launch::async | std::launch::deferred, [&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->val.get(); }  return sum; });
 }
 
 void FUNCTION_CELL::AVERAGE::Function() {
-	//val = async(std::launch::async | std::launch::deferred, [&input] { return std::accumulate(input.begin(), input.end(), 0.0) / input.size(); });
+	if (Arguments.size() == 0) { throw invalid_argument("Error parsing input text.\nNo arguments provided."); }
 	auto& input = Arguments;
 	val = async(std::launch::async | std::launch::deferred, [&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->val.get(); }  return sum / input.size(); });
+}
+
+void FUNCTION_CELL::PRODUCT::Function() {
+	if (Arguments.size() == 0) { throw invalid_argument("Error parsing input text.\nNo arguments provided."); }
+	double product{ 1 };
+	for (auto x : Arguments) { product *= (*x).val.get(); }
+	auto p = promise<double>{};
+	val = p.get_future();
+	p.set_value(product);
+}
+
+void FUNCTION_CELL::INVERSE::Function() {
+	if (Arguments.size() != 1) { throw invalid_argument("Error parsing input text.\nExactly one argument must be given."); }
+	auto p = promise<double>{};
+	val = p.get_future();
+	p.set_value((*Arguments.begin())->val.get() * (-1));
+}
+
+void FUNCTION_CELL::RECIPROCAL::Function() {
+	if (Arguments.size() != 1) { throw invalid_argument("Error parsing input text.\nExactly one argument must be given."); }
+	auto p = promise<double>{};
+	val = p.get_future();
+	p.set_value(1 / (*Arguments.begin())->val.get());
+}
+
+void FUNCTION_CELL::PI::Function() {
+	if (Arguments.size() != 0) { throw invalid_argument("Error parsing input text.\nFunction takes no arguments."); }
+	auto p = promise<double>{};
+	val = p.get_future();
+	p.set_value(3.14159);		// <== May consider other ways to call/represent this number.
 }
