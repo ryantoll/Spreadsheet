@@ -215,16 +215,34 @@ void FUNCTION_CELL::InitializeCell() {
 	storedValue = func.val.get();
 }
 
+void FUNCTION_CELL::UpdateCell() {
+	//func.val = std::future<double>();
+	func.UpdateArgument();
+	storedValue = func.val.get();
+	CELL::UpdateCell();
+}
+
 void FUNCTION_CELL::FUNCTION::Function() {
 	auto p = promise<double>{};
 	val = p.get_future();
 	p.set_value((*Arguments.begin())->val.get());		// By default, assume a single argument and simply grab its value
 }
 
-FUNCTION_CELL::VALUE_ARGUMENT::VALUE_ARGUMENT(double arg) {
+void FUNCTION_CELL::FUNCTION::UpdateArgument() {
+	for (auto arg : Arguments) { arg->UpdateArgument(); }	// Update each argument before recalculating function
+	Function();
+}
+
+FUNCTION_CELL::VALUE_ARGUMENT::VALUE_ARGUMENT(double arg): storedArgument(arg) {
 	auto p = promise<double>{};
 	val = p.get_future();
 	p.set_value(arg);
+}
+
+void FUNCTION_CELL::VALUE_ARGUMENT::UpdateArgument() {
+	auto p = promise<double>{};
+	val = p.get_future();
+	p.set_value(storedArgument);
 }
 
 // May throw
@@ -233,6 +251,12 @@ FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(CELL_POSITION pos) : refer
 	auto p = promise<double>{};
 	val = p.get_future();
 	p.set_value(stod(cellMap.at(pos)->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
+}
+
+void FUNCTION_CELL::REFERENCE_ARGUMENT::UpdateArgument() {
+	auto p = promise<double>{};
+	val = p.get_future();
+	p.set_value(stod(cellMap.at(referencePosition)->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
 }
 
 void FUNCTION_CELL::SUM::Function() {

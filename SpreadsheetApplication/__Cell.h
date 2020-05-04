@@ -31,6 +31,7 @@ public:
 	// Internal "Singleton" factory, which has implicit access to private and protected CELL members.
 	// NewCell() member function should be fixed for consistency with existing cell types.
 	// Factory should be open to extention to support new cell types, defaulting to NewCell().
+protected:
 	class CELL_FACTORY {
 	public:
 		virtual ~CELL_FACTORY() {}
@@ -38,6 +39,7 @@ public:
 		static void NotifyAll(CELL_POSITION);
 	};
 
+public:
 	static CELL_FACTORY cell_factory;
 
 private:
@@ -136,64 +138,32 @@ class FUNCTION_CELL : public NUMERICAL_CELL {
 public:
 	virtual ~FUNCTION_CELL() {}
 	void InitializeCell() override;
-	void UpdateCell() override { }		// Need to add recalculate logic here for when reference cells update
+	void UpdateCell() override;		// Need to add recalculate logic here for when reference cells update
 
-	struct ARGUMENT {
+	struct ARGUMENT { 
 		future<double> val;
-
-		ARGUMENT() = default;
-		/*virtual ~ARGUMENT() = default;
-		virtual ARGUMENT& operator=(const ARGUMENT& arg) { if (arg.val.valid()) { auto p = promise<double>{}; val = p.get_future(); p.set_value(arg.val._Get_value()); } return *this; }
-		ARGUMENT(const ARGUMENT& arg) { if (arg.val.valid()) { auto p = promise<double>{}; val = p.get_future(); p.set_value(arg.val._Get_value()); } }*/
+		virtual void UpdateArgument() { }				// Logic to update argument when dependent cells update. May be trivial.
 	};
 
 	struct FUNCTION: public ARGUMENT {
-		//FUNCTION() = default;
-		//~FUNCTION() = default;
 		vector<shared_ptr<ARGUMENT>> Arguments;
 		//double (*funPTR) (vector<ARGUMENT>);			// Alternate to subclassing, just assign a function to this pointer at runtime.
 		virtual void Function();						// Each sub-class overrides this function to implement its own functionallity
+		void UpdateArgument() override;
 		bool calculationComplete{ false };
 		bool error{ false };
-
-		// Copy & Copy constructor
-		// The future held in the ARGUMENT portion of the FUNCTION prevents generation of default copy operations
-		// If the future has a value, copy that over, otherwise recalculate it when needed
-		/*FUNCTION& operator=(const FUNCTION& f) {
-			Arguments = f.Arguments;
-			calculationComplete = f.calculationComplete;
-			error = f.error;
-			//if (f.val.valid) { auto p = promise<double>{}; val = p.get_future(); p.set_value(f.val.get()); }		// Copy value if already calculated.
-			return *this;
-		}
-
-		FUNCTION(const FUNCTION& f): 
-			Arguments(f.Arguments), calculationComplete(f.calculationComplete), error(f.error) {
-			//if (f.val.valid) { auto p = promise<double>{}; val = p.get_future(); p.set_value(f.val.get()); }		// Copy value if already calculated.
-		}*/
 	};
 
 	struct VALUE_ARGUMENT : public ARGUMENT {
+		double storedArgument{ };
 		explicit VALUE_ARGUMENT(double);
-		/*~VALUE_ARGUMENT() = default;
-		VALUE_ARGUMENT& operator=(const VALUE_ARGUMENT& arg) {
-			if (!arg.val.valid()) { return *this; }
-			auto p = promise<double>{};
-			val = p.get_future();
-			p.set_value(arg.val._Get_value());
-			return *this;
-		}
-		VALUE_ARGUMENT(const VALUE_ARGUMENT& arg) {
-			if (!arg.val.valid()) { return; }
-			auto p = promise<double>{};
-			val = p.get_future();
-			p.set_value(arg.val._Get_value());
-		}*/
+		void UpdateArgument() override;
 	};
 
 	struct REFERENCE_ARGUMENT : public ARGUMENT {
 		REFERENCE_ARGUMENT(CELL_POSITION pos);
 		CELL_POSITION referencePosition;
+		void UpdateArgument() override;
 	};
 
 protected:
