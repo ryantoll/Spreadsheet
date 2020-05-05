@@ -26,6 +26,7 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring con
 	case L'\'': { cell.reset(new TEXT_CELL()); } break;			// Enforce textual interpretation for format: '__
 	case L'&': { cell.reset(new REFERENCE_CELL()); } break;		// Takes input in the form of: &R__C__ or &C__R__
 	case '=': { cell.reset(new FUNCTION_CELL()); } break;		// Not yet implemented...
+	case L'-':
 	case L'.':
 	case L'1':
 	case L'2':
@@ -42,16 +43,13 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring con
 
 	cell->position = position;
 	cell->rawContent = contents;
-	
-	try { cell->InitializeCell(); }			// Generic error catching for all cell types.
-	catch (...) { cell->error = true; }		// Failure of any sort will set the cell into an error state.
 
 	cellMap[position] = cell;				// Add cell to cell map upon creation.
+	try { cell->InitializeCell(); }			// Call initialize on cell.
+	catch (...) { cell->error = true; }		// Failure of any sort will set the cell into an error state.
 	NotifyAll(position);					// Notify any cells that may be observing this position.
 
-	// Factory is entirely done with cell.
-	// Use std::move() to ensure no dangling reference allows for future erroneous alterations.
-	return std::move(cell);
+	return cellMap[position];				// Return stored cell so that failed numerical cells return the stored fallback text cell rather than the original failed numerical cell.
 }
 
 void CELL::CELL_FACTORY::NotifyAll(CELL_POSITION subject) {
@@ -90,6 +88,11 @@ void CELL::UnsubscribeFromCell(CELL_POSITION subject) {
 
 void CELL::UpdateCell() { table->UpdateCell(position); }		// Call update cell on GUI base pointer.
 
+void TEXT_CELL::InitializeCell() {
+	CELL::InitializeCell();
+	if (displayValue[0] == L'\'') { displayValue.erase(0, 1); }		// Omit preceeding ' if it was added to enforce a text cell
+}
+
 // Parese string into Row & Column positions of reference cell
 // Parsing allows for either ordering and is not case-sensitive
 // Subscribe to updates on referenced cell once it's position is determined
@@ -118,7 +121,11 @@ void NUMERICAL_CELL::InitializeCell() {
 	// Override default error behavior.
 	// Any cell that seems like a number, but cannot be converted to such defaults to text.
 	// Create a new cell at the same position with a prepended text-enforcement character.
-	try { storedValue = stod(rawReader()); }
+	// Manually check for alpha characters since std::stod() is more forgiving than is appropriate for this situation.
+	try { 
+		for (auto c : rawReader()) { if (isalpha(c)) { throw invalid_argument("Error parsing input text. \nText could not be interpreted as a number"); } }
+		storedValue = stod(rawReader());
+	}
 	catch (...) { CELL::CELL_FACTORY::NewCell(position, L"'" + rawReader()); }
 }
 
@@ -142,34 +149,45 @@ shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(wstring& inputText) {
 // I have seen other parsing solutions on a superficial level and they break down the text into "token" objects.
 // I may need to rework this in a more object-oriented solution to make it easier to conceptualize the various complexities.
 shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(wstring& inputText) {
-	// Add "clear white space" operation
-	// Add "clear brackets" operation
+	// Clear any spaces, which will interfere with parsing
+	auto n = size_t{ 0 };
+	while (true) {
+		n = inputText.find(L' ');
+		if (n == string::npos) { break; }
+		inputText.erase(n, 1);
+	}
 
 	if (isalpha(inputText[0])) { /*Convert function name*/ 
-		auto n = 0;
+		n = 0; //auto n = size_t{ 0 };
 		while (isalpha(inputText[n])) { ++n; }
 		auto funcName = inputText.substr(0, n);
 		inputText.erase(0, n);
 
 		// Create approprate function cell from function name
 		// Call new parsing operation to fill out function arguments
-		//auto func = FUNCTION_CELL::SUM();	// Placeholder for return value
 
 		auto func = MatchNameToFunction(funcName); func->Arguments.clear();
-		if (!ClearEnclosingChars(L'(', L')', inputText)) { throw invalid_argument("Error parsing input text. \nParentheses mismatch."); }
+		if (!ClearEnclosingChars(L'(', L')', inputText)) { throw invalid_argument("Error parsing input text. \nParentheses mismatch."); }	// Clear enclosing brackets of funciton call
 
 		// Segment text within parentheses into segments deliniated by commas
+		// Tracks count of parentheses to skip over nested function commas
 		// This will fill the vector of ARGUMENTS used for function input parameters
-		// Needs more work to sort out nested function arguments
-		// Always grabs next comma even if it's from a nested function
-		vector<wstring> argSegments;
-		n = inputText.find_first_of(L',');
-		while (n != wstring::npos) {
+		auto argSegments = vector<wstring>{ };
+		auto countParentheses{ 0 }; auto n2 = size_t{ 0 };
+		do {
+			n = 0; n2 = 0;												// Reset indicies so each run starts fresh
+			do {
+				n = inputText.find_first_of(L",()", n2);
+				if (n == string::npos) { break; }						// End of string
+				else if (inputText[n] == L'(') { ++countParentheses; }
+				else if (inputText[n] == L')') { --countParentheses; }
+				else if (countParentheses == 0) { continue; }			// Non-nested comma; stop before incrementing indicies
+				n2 = ++n;												// Increment indicies to avoid stopping on the same character perpetually
+			} while (countParentheses != 0);
+			if (inputText.size() == 0) { break; }						// String fully parsed; don't push_back empty string
 			argSegments.push_back(inputText.substr(0, n));
 			inputText.erase(0, n + 1);
-			n = inputText.find_first_of(L',');
-		}
-		argSegments.push_back(inputText.substr(0, n));
+		} while (n != wstring::npos);
 
 		for (auto arg : argSegments) { func->Arguments.push_back(ParseFunctionString(arg)); }	// For each segment, build it into an argument recursively
 		func->Function();																		// Associate future with result of function
