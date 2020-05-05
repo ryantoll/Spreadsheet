@@ -96,6 +96,7 @@ class TEXT_CELL : public CELL {
 public:
 	virtual ~TEXT_CELL() {}
 	wstring DisplayOutput() override { return displayValue; }	// Presumably this will never be in an error state.
+	void InitializeCell() override;
 };
 
 // A cell that refers to another cell by referring to it's position.
