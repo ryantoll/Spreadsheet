@@ -1,14 +1,22 @@
 #include "stdafx.h"
+#include "Utilities.h"
 #include "__Cell.h"
 #include "__Table.h"
 #include <stdexcept>
 
+using std::string;
+using std::vector;
+using std::shared_ptr;
+using std::promise;
+using std::invalid_argument;
+using std::make_shared;
+
 //multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> CELL::subscriptionMap = { }; 	//<Subject, Observers>
-multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> subscriptionMap{ }; 				//<Subject, Observers>
+std::multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> subscriptionMap{ }; 				//<Subject, Observers>
 
 //map<wstring, shared_ptr<FUNCTION_CELL::FUNCTION>> functionNameMap{ {wstring(L"SUM"), shared_ptr<FUNCTION_CELL::SUM>()}, {wstring(L"AVERAGE"), shared_ptr<FUNCTION_CELL::AVERAGE>()} };
 
-shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring contents) {
+shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, string contents) {
 	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
 	// but also prevents accidental errors in failing to specify a location.
 	// R == 0 || C == 0 almost certainly indicates a failure to specify one or both arguments.
@@ -17,7 +25,7 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, wstring con
 	// Empty contents argument not only fails to create a new cell, but deletes any cell that may already exist at that position.
 	// Notify any observing cells about the change *AFTER* the change has occurred.
 	// (Note that control flow immediately goes to any updating cells.)
-	if (contents == L"") { cellMap.erase(position); NotifyAll(position); return nullptr; }
+	if (contents == "") { cellMap.erase(position); NotifyAll(position); return nullptr; }
 
 	shared_ptr<CELL> cell;
 
@@ -126,20 +134,20 @@ void NUMERICAL_CELL::InitializeCell() {
 		for (auto c : rawReader()) { if (isalpha(c)) { throw invalid_argument("Error parsing input text. \nText could not be interpreted as a number"); } }
 		storedValue = stod(rawReader());
 	}
-	catch (...) { CELL::CELL_FACTORY::NewCell(position, L"'" + rawReader()); }
+	catch (...) { CELL::CELL_FACTORY::NewCell(position, "'" + rawReader()); }
 }
 
 // I'm not sure how best to implement this mapping of text to function objects
-shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(wstring& inputText) {
+shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(string& inputText) {
 	//return functionNameMap.find(inputText)->second;
 	//return make_shared<FUNCTION_CELL::SUM>();
 	
-	if (inputText == L"SUM") { return make_shared<FUNCTION_CELL::SUM>(); }
-	else if (inputText == L"AVERAGE") { return make_shared<FUNCTION_CELL::AVERAGE>(); }
-	else if (inputText == L"PRODUCT") { return make_shared<FUNCTION_CELL::PRODUCT>(); }
-	else if (inputText == L"INVERSE") { return make_shared<FUNCTION_CELL::INVERSE>(); }
-	else if (inputText == L"RECIPROCAL") { return make_shared<FUNCTION_CELL::RECIPROCAL>(); }
-	else if (inputText == L"PI") { return make_shared<FUNCTION_CELL::PI>(); }
+	if (inputText == "SUM") { return make_shared<FUNCTION_CELL::SUM>(); }
+	else if (inputText == "AVERAGE") { return make_shared<FUNCTION_CELL::AVERAGE>(); }
+	else if (inputText == "PRODUCT") { return make_shared<FUNCTION_CELL::PRODUCT>(); }
+	else if (inputText == "INVERSE") { return make_shared<FUNCTION_CELL::INVERSE>(); }
+	else if (inputText == "RECIPROCAL") { return make_shared<FUNCTION_CELL::RECIPROCAL>(); }
+	else if (inputText == "PI") { return make_shared<FUNCTION_CELL::PI>(); }
 	else { return make_shared<FUNCTION_CELL::FUNCTION>(); }
 	
 }
@@ -148,7 +156,7 @@ shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(wstring& inputText) {
 // This approach may get overly cumbersome once I account for operators (+,-,*,/) as well as ordering parentheses.
 // I have seen other parsing solutions on a superficial level and they break down the text into "token" objects.
 // I may need to rework this in a more object-oriented solution to make it easier to conceptualize the various complexities.
-shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(wstring& inputText) {
+shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& inputText) {
 	// Clear any spaces, which will interfere with parsing
 	auto n = size_t{ 0 };
 	while (true) {
@@ -172,12 +180,12 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(wstring& 
 		// Segment text within parentheses into segments deliniated by commas
 		// Tracks count of parentheses to skip over nested function commas
 		// This will fill the vector of ARGUMENTS used for function input parameters
-		auto argSegments = vector<wstring>{ };
+		auto argSegments = vector<string>{ };
 		auto countParentheses{ 0 }; auto n2 = size_t{ 0 };
 		do {
 			n = 0; n2 = 0;												// Reset indicies so each run starts fresh
 			do {
-				n = inputText.find_first_of(L",()", n2);
+				n = inputText.find_first_of(",()", n2);
 				if (n == string::npos) { break; }						// End of string
 				else if (inputText[n] == L'(') { ++countParentheses; }
 				else if (inputText[n] == L')') { --countParentheses; }
@@ -187,7 +195,7 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(wstring& 
 			if (inputText.size() == 0) { break; }						// String fully parsed; don't push_back empty string
 			argSegments.push_back(inputText.substr(0, n));
 			inputText.erase(0, n + 1);
-		} while (n != wstring::npos);
+		} while (n != string::npos);
 
 		for (auto arg : argSegments) { func->Arguments.push_back(ParseFunctionString(arg)); }	// For each segment, build it into an argument recursively
 		func->Function();																		// Associate future with result of function
