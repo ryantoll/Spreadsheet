@@ -211,8 +211,9 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(wstring& 
 			pos.row = stoi(inputText.substr(row_index + 1));
 		}
 
-		auto referencePosition = pos;
-		SubscribeToCell(referencePosition);
+		//auto referencePosition = pos;
+		SubscribeToCell(pos);
+		if (cellMap.find(pos) == cellMap.end()) { error = true; }		// Dangling reference: set error flag. Still need to construct reference argument for future use.
 		return make_shared<FUNCTION_CELL::REFERENCE_ARGUMENT>(pos);
 	}
 	else if (isdigit(inputText[0])) { /*Convert to value*/ 
@@ -235,6 +236,7 @@ void FUNCTION_CELL::InitializeCell() {
 
 void FUNCTION_CELL::UpdateCell() {
 	//func.val = std::future<double>();
+	error = false;		// Reset error flag in case there was a prior error
 	func.UpdateArgument();
 	storedValue = func.val.get();
 	CELL::UpdateCell();
@@ -243,7 +245,9 @@ void FUNCTION_CELL::UpdateCell() {
 void FUNCTION_CELL::FUNCTION::Function() {
 	auto p = promise<double>{};
 	val = p.get_future();
-	p.set_value((*Arguments.begin())->val.get());		// By default, assume a single argument and simply grab its value
+	if (Arguments.size() == 0) { error = true; return; }
+	auto x = *Arguments.begin();
+	p.set_value(x->val.get());		// By default, assume a single argument and simply grab its value
 }
 
 void FUNCTION_CELL::FUNCTION::UpdateArgument() {
@@ -268,7 +272,11 @@ void FUNCTION_CELL::VALUE_ARGUMENT::UpdateArgument() {
 FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(CELL_POSITION pos) : referencePosition(pos) {
 	auto p = promise<double>{};
 	val = p.get_future();
-	p.set_value(stod(cellMap.at(pos)->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
+	try { 
+		auto x = cellMap.at(pos)->DisplayOutput();		// 
+		p.set_value(stod(x));	// Stored value may need to be tracked separately from display value eventually
+	}
+	catch (...) { }
 }
 
 void FUNCTION_CELL::REFERENCE_ARGUMENT::UpdateArgument() {
