@@ -1,6 +1,11 @@
 #include "stdafx.h"
+#include "Utilities.h"
 #include "__Table.h"
 #include <WinUser.h>
+
+using std::wstring;
+using std::to_wstring;
+using std::vector;
 
 const int id_Table_Background{ 32767 }, id_Text_Edit_Bar{ 32766 };
 WNDPROC EditHandler;
@@ -31,9 +36,10 @@ bool CreateNewCell(HWND hMostRecentCell, wstring rawInput) {
 	auto id = WINDOWS_TABLE::CELL_ID(GetDlgCtrlID(hMostRecentCell));
 	///*temporary bug fix*/	auto itCell = cellMap.find(id.GetCellPosition());
 	///*temporary bug fix*/	if (rawInput != L"" && itCell != cellMap.end() && itCell->second->DisplayRawContent() == oldContent) { return false; }
-	auto cell = CELL::cell_factory.NewCell(id.GetCellPosition(), rawInput);
-	if (!cell) { return false; }													// Exit if no new cell is created.
-	SetWindowText(hMostRecentCell, cell->DisplayOutput().c_str());					// Otherwise, update cell content.
+	auto cell = CELL::cell_factory.NewCell(id.GetCellPosition(), wstring_to_string(rawInput));
+	if (!cell) { return false; }																	// Exit if no new cell is created.
+	auto out = string_to_wstring(cell->DisplayOutput());
+	SetWindowText(hMostRecentCell, out.c_str());													// Otherwise, update cell content.
 	return true;
 }
 
@@ -51,10 +57,11 @@ LRESULT CALLBACK CellWindowProc(HWND hEditBox, UINT message, WPARAM wParam, LPAR
 
 		auto id = WINDOWS_TABLE::CELL_ID(GetDlgCtrlID(hEditBox));
 		auto itCell = cellMap.find(id.GetCellPosition());
-		if (itCell == cellMap.end()) { break; }											// Exit here if cell doesn't exist.
-		SetWindowText(h_Text_Edit_Bar, itCell->second->DisplayRawContent().c_str());	// Otherwise, display raw content in entry bar.
-		SetWindowText(hEditBox, itCell->second->DisplayRawContent().c_str());			// Show raw content rather than display value when cell is selected for editing.
-		SendMessage(hEditBox, EM_SETSEL, 0, -1);										// Select all within cell.
+		if (itCell == cellMap.end()) { break; }									// Exit here if cell doesn't exist.
+		auto out = string_to_wstring(itCell->second->DisplayRawContent());
+		SetWindowText(h_Text_Edit_Bar, out.c_str());							// Otherwise, display raw content in entry bar.
+		SetWindowText(hEditBox, out.c_str());									// Show raw content rather than display value when cell is selected for editing.
+		SendMessage(hEditBox, EM_SETSEL, 0, -1);								// Select all within cell.
 	} break;
 	case WM_KILLFOCUS: {
 		hMostRecentCell = hEditBox;
@@ -147,7 +154,7 @@ void WINDOWS_TABLE::AddRow() {
 	while (cell_ID.GetColumn() < numColumns) {
 		cell_ID.IncrementColumn();
 		auto itCell = cellMap.find(cell_ID.GetCellPosition());
-		if (itCell != cellMap.end()) { cellDisplay = itCell->second->DisplayOutput(); }
+		if (itCell != cellMap.end()) { cellDisplay = string_to_wstring(itCell->second->DisplayOutput()); }
 		else { cellDisplay.clear(); }
 		h = CreateWindow(TEXT("edit"), cellDisplay.c_str(), WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + cell_ID.GetColumn() * width, y0 + (numRows)* height, width, height, hTable, reinterpret_cast<HMENU>(cell_ID.GetWindowID()), hInst, NULL);
 		SetWindowLong(h, GWL_WNDPROC, (LONG)CellWindowProc);
@@ -166,7 +173,7 @@ void WINDOWS_TABLE::AddColumn() {
 	while (cell_ID.GetRow() < numRows) {
 		cell_ID.IncrementRow();
 		auto itCell = cellMap.find(cell_ID.GetCellPosition());
-		if (itCell != cellMap.end()) { cellDisplay = itCell->second->DisplayOutput(); }
+		if (itCell != cellMap.end()) { cellDisplay = string_to_wstring(itCell->second->DisplayOutput()); }
 		else { cellDisplay.clear(); }
 		auto h = CreateWindow(TEXT("edit"), cellDisplay.c_str(), WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + cell_ID.GetColumn() * width, y0 + cell_ID.GetRow() * height, width, height, hTable, reinterpret_cast<HMENU>(cell_ID.GetWindowID()), hInst, NULL);
 		SetWindowLong(h, GWL_WNDPROC, (LONG)CellWindowProc);
@@ -225,7 +232,7 @@ void WINDOWS_TABLE::Resize() {
 void WINDOWS_TABLE::UpdateCell(CELL::CELL_POSITION position) {
 	auto id = WINDOWS_TABLE::CELL_ID{ position };
 	auto h = GetDlgItem(hTable, id.GetWindowID());
-	auto out = cellMap[position]->DisplayOutput();
+	auto out = string_to_wstring(cellMap[position]->DisplayOutput());
 	SetWindowText(h, out.c_str());
 }
 

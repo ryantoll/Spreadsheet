@@ -9,7 +9,7 @@ constexpr const auto TABLE_COMMAND_READ_CELL = 1;
 class TABLE_BASE;
 
 //LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
-inline unique_ptr<TABLE_BASE> table;
+inline std::unique_ptr<TABLE_BASE> table;
 
 // TABLE_BASE is an abstract base class that is specialized for the OS in question.
 // This decouples cell logic from OS dependence and maximizes portability.
