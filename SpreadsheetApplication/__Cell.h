@@ -24,11 +24,10 @@ public:
 	// Internal "Singleton" factory, which has implicit access to private and protected CELL members.
 	// NewCell() member function should be fixed for consistency with existing cell types.
 	// Factory should be open to extention to support new cell types, defaulting to NewCell().
-protected:
+private:
 	class CELL_FACTORY {
 	public:
-		virtual ~CELL_FACTORY() {}
-		static std::shared_ptr<CELL> NewCell(CELL_POSITION, std::string);
+		static std::shared_ptr<CELL> NewCell(CELL_POSITION, const std::string&);
 		static void NotifyAll(CELL_POSITION);
 	};
 
@@ -44,18 +43,19 @@ protected:
 	CELL_POSITION position;
 
 	CELL() {}
+	static std::shared_ptr<CELL> NewCell(CELL_POSITION p, const std::string& s) { return CELL_FACTORY::NewCell(p, s); }
 
-	void SubscribeToCell(CELL_POSITION subject);
-	void UnsubscribeFromCell(CELL_POSITION);
+	void SubscribeToCell(CELL_POSITION subject) const;
+	void UnsubscribeFromCell(CELL_POSITION) const;
 
 	// Sub-classes have read-only access to raw cell content.
 	// Any change in raw content should create/initialize a new CELL through the factory funciton.
 	// This ensures encapsulation so that client does not mismanage cell-type changes.
-	std::string rawReader() { return rawContent; }
+	std::string rawReader() const { return rawContent; }
 public:
 	virtual ~CELL() {}
-	virtual std::string DisplayOutput() { return error ? "!ERROR!" : displayValue; }
-	virtual std::string DisplayRawContent() { return rawContent; }
+	virtual std::string DisplayOutput() const { return error ? "!ERROR!" : displayValue; }
+	virtual std::string DisplayRawContent() const { return rawContent; }
 	virtual void InitializeCell() { displayValue = rawContent; }
 	virtual bool MoveCell(CELL_POSITION newPosition);
 	virtual void UpdateCell();		// Invoked whenever a cell needs to update it's output.
@@ -82,28 +82,26 @@ inline bool operator!= (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITIO
 // The choice of column sorting preempting row sorting is arbitrary. Either way is fine so long as it is consistent.
 // Note that an "Observer" pattern may be needed in association with cellMap to notify relevant cells when changes occur.
 // Changes may cascade, so notifications may need to specify what changes or which cells are potentially affected.
-inline std::map<CELL::CELL_POSITION, std::shared_ptr<CELL>> cellMap;
+inline auto cellMap = std::map<CELL::CELL_POSITION, std::shared_ptr<CELL>>{ };
 
 // A cell that is simply raw text merely outputs its text.
 class TEXT_CELL : public CELL {
 public:
 	virtual ~TEXT_CELL() {}
-	std::string DisplayOutput() override { return displayValue; }	// Presumably this will never be in an error state.
+	std::string DisplayOutput() const override { return displayValue; }	// Presumably this will never be in an error state.
 	void InitializeCell() override;
 };
 
 // A cell that refers to another cell by referring to it's position.
 class REFERENCE_CELL : public CELL {
 public:
-	//REFERENCE_CELL() = default;
 	virtual ~REFERENCE_CELL() { UnsubscribeFromCell(referencePosition); }
-	std::string DisplayOutput() override {
+	std::string DisplayOutput() const override {
 		auto out = std::string{};
 		auto itCell = cellMap.find(referencePosition);
 		if (itCell == cellMap.end()) { out = "!REF!"; }
 		else { out = itCell->second->DisplayOutput(); }
 		return error ? "!ERROR!" : out;
-		//return error ? L"!ERROR!" : cellMap[referencePosition]->DisplayOutput();
 	}
 	void InitializeCell() override;
 protected:
@@ -117,7 +115,7 @@ protected:
 	//DISPLAY_PARAMETERS parameters;		// Add criteria for textual representation of value. (Ex. 1 vs. 1.0000 vs. $1.00, etc.)
 public:
 	virtual ~NUMERICAL_CELL() {}
-	std::string DisplayOutput() override { return error ? "!ERROR!" : std::to_string(storedValue); }
+	std::string DisplayOutput() const override { return error ? "!ERROR!" : std::to_string(storedValue); }
 	void InitializeCell() override;
 };
 
@@ -144,7 +142,6 @@ public:
 		//double (*funPTR) (vector<ARGUMENT>);			// Alternate to subclassing, just assign a function to this pointer at runtime.
 		virtual void Function();						// Each sub-class overrides this function to implement its own functionallity
 		void UpdateArgument() override;
-		//bool calculationComplete{ false };
 		bool error{ false };
 	};
 
@@ -155,8 +152,10 @@ public:
 	};
 
 	struct REFERENCE_ARGUMENT : public ARGUMENT {
-		REFERENCE_ARGUMENT(CELL_POSITION pos);
+		REFERENCE_ARGUMENT(FUNCTION_CELL&, CELL_POSITION);
+		~REFERENCE_ARGUMENT() { parentCell->UnsubscribeFromCell(referencePosition); }
 		CELL_POSITION referencePosition;
+		std::shared_ptr<FUNCTION_CELL> parentCell;
 		void UpdateArgument() override;
 	};
 
