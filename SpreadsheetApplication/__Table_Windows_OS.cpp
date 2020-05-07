@@ -6,6 +6,7 @@
 using std::wstring;
 using std::to_wstring;
 using std::vector;
+using namespace RYANS_UTILITIES;
 
 const int id_Table_Background{ 32767 }, id_Text_Edit_Bar{ 32766 };
 WNDPROC EditHandler;
@@ -83,32 +84,31 @@ LRESULT CALLBACK CellWindowProc(HWND hEditBox, UINT message, WPARAM wParam, LPAR
 			auto id = WINDOWS_TABLE::CELL_ID(GetDlgCtrlID(hEditBox));
 			auto winTable = dynamic_cast<WINDOWS_TABLE*>(table.get());
 			if (id.GetColumn() >= winTable->numColumns) { /*winTable->origin.column++; winTable->Resize();*/ break; }
-			int winID = id.IncrementColumn().GetWindowID();
-			auto h = GetDlgItem(hTable, id.GetWindowID());
+			auto winID = id.IncrementColumn().GetWindowID();
+			auto h = GetDlgItem(hTable, winID);
 			SetFocus(h);
 		} break;
 		case VK_LEFT: {
 			auto id = WINDOWS_TABLE::CELL_ID(GetDlgCtrlID(hEditBox));
 			if (id.GetColumn() == 1) { break; }
-			int winID = id.DecrementColumn().GetWindowID();
-			auto h = GetDlgItem(hTable, id.GetWindowID());
+			auto winID = id.DecrementColumn().GetWindowID();
+			auto h = GetDlgItem(hTable, winID);
 			SetFocus(h);
 		} break;
 		case VK_UP: {
 			auto id = WINDOWS_TABLE::CELL_ID(GetDlgCtrlID(hEditBox));
 			if (id.GetRow() == 1) { break; }
-			int winID = id.DecrementRow().GetWindowID();
-			auto h = GetDlgItem(hTable, id.GetWindowID());
+			auto winID = id.DecrementRow().GetWindowID();
+			auto h = GetDlgItem(hTable, winID);
 			SetFocus(h);
 		} break;
-		case VK_DOWN: {
-		} // vvvvvv__FallThrough__vvvvvv
+		case VK_DOWN: // vvvvvv__FallThrough__vvvvvv
 		case VK_RETURN: {
 			auto id = WINDOWS_TABLE::CELL_ID(GetDlgCtrlID(hEditBox));
 			auto winTable = dynamic_cast<WINDOWS_TABLE*>(table.get());
 			if (id.GetRow() >= winTable->numRows) { /*winTable->origin.column++; winTable->Resize();*/ break; }
-			int winID = id.IncrementRow().GetWindowID();
-			auto h = GetDlgItem(hTable, id.GetWindowID());
+			auto winID = id.IncrementRow().GetWindowID();
+			auto h = GetDlgItem(hTable, winID);
 			SetFocus(h);
 		} break;
 		}
@@ -130,8 +130,8 @@ LRESULT CALLBACK EntryBarWindowProc(HWND hEntryBox, UINT message, WPARAM wParam,
 			auto id = WINDOWS_TABLE::CELL_ID(GetDlgCtrlID(hMostRecentCell));
 			auto winTable = dynamic_cast<WINDOWS_TABLE*>(table.get());
 			if (id.GetRow() >= winTable->numRows) { /*winTable->origin.column++; winTable->Resize();*/ break; }
-			int winID = id.IncrementRow().GetWindowID();
-			auto h = GetDlgItem(hTable, id.GetWindowID());
+			auto winID = id.IncrementRow().GetWindowID();
+			auto h = GetDlgItem(hTable, winID);
 			SetFocus(h);
 		} break;
 		}
@@ -141,16 +141,18 @@ LRESULT CALLBACK EntryBarWindowProc(HWND hEntryBox, UINT message, WPARAM wParam,
 	return CallWindowProc(EditHandler, hEntryBox, message, wParam, lParam);
 }
 
+WINDOWS_TABLE::~WINDOWS_TABLE() { }		// Hook for any on-exit logic
+
 void WINDOWS_TABLE::AddRow() {
-	vector<HWND> tempVec;
-	WINDOWS_TABLE::CELL_ID cell_ID{ CELL::CELL_POSITION{ } };
+	auto tempVec = vector<HWND>{ };
+	auto cell_ID = WINDOWS_TABLE::CELL_ID{ CELL::CELL_POSITION{ } };
 	cell_ID.SetRow(++numRows).SetColumn(0);
 	//cell_ID.SetRow(origin.row + ++numRows);
 
-	wstring label = L"R" + to_wstring(numRows);
+	auto label = wstring{ L"R" } + to_wstring(numRows);
 	auto h = CreateWindow(TEXT("Static"), label.c_str(), WS_CHILD | WS_BORDER | WS_VISIBLE, x0, y0 + (numRows)* height, width, height, hTable, reinterpret_cast<HMENU>(cell_ID.GetWindowID()), hInst, NULL);
 
-	wstring cellDisplay;
+	auto cellDisplay = wstring{ };
 	while (cell_ID.GetColumn() < numColumns) {
 		cell_ID.IncrementColumn();
 		auto itCell = cellMap.find(cell_ID.GetCellPosition());
@@ -162,14 +164,14 @@ void WINDOWS_TABLE::AddRow() {
 }
 
 void WINDOWS_TABLE::AddColumn() {
-	WINDOWS_TABLE::CELL_ID cell_ID{ CELL::CELL_POSITION{ } };
+	auto cell_ID = WINDOWS_TABLE::CELL_ID{ CELL::CELL_POSITION{ } };
 	cell_ID.SetRow(0).SetColumn(++numColumns);
 	//cell_ID.SetColumn(origin.column + ++numColumns);
 
-	wstring label = L"C" + to_wstring(numColumns);
+	auto label = wstring{ L"C" } + to_wstring(numColumns);
 	auto h = CreateWindow(TEXT("Static"), label.c_str(), WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + numColumns * width, y0, width, height, hTable, reinterpret_cast<HMENU>(cell_ID.GetWindowID()), hInst, NULL);
 
-	wstring cellDisplay;
+	auto cellDisplay = wstring{ };
 	while (cell_ID.GetRow() < numRows) {
 		cell_ID.IncrementRow();
 		auto itCell = cellMap.find(cell_ID.GetCellPosition());
@@ -209,11 +211,11 @@ void WINDOWS_TABLE::RemoveColumn() {
 }
 
 void WINDOWS_TABLE::Resize() {
-	RECT rect;
+	auto rect = RECT{ };
 	GetClientRect(hParent, &rect);
 
-	int col = ceil(static_cast<double>(rect.right) / width) - 1;		// Leave off label column
-	int row = ceil(static_cast<double>(rect.bottom) / height) - 2;		// Leave off label row and Entry box
+	auto col = static_cast<int>(ceil(static_cast<double>(rect.right) / width) - 1);		// Leave off label column
+	auto row = static_cast<int>(ceil(static_cast<double>(rect.bottom) / height) - 2);	// Leave off label row and Entry box
 
 	if (col > 255) { col = 255; }
 	else if (col < 1) { col = 1; }
@@ -229,14 +231,14 @@ void WINDOWS_TABLE::Resize() {
 	MoveWindow(h_Text_Edit_Bar, 0, 0, rect.right, height, true);
 }
 
-void WINDOWS_TABLE::UpdateCell(CELL::CELL_POSITION position) {
+void WINDOWS_TABLE::UpdateCell(CELL::CELL_POSITION position) const {
 	auto id = WINDOWS_TABLE::CELL_ID{ position };
 	auto h = GetDlgItem(hTable, id.GetWindowID());
 	auto out = string_to_wstring(cellMap[position]->DisplayOutput());
 	SetWindowText(h, out.c_str());
 }
 
-void WINDOWS_TABLE::Redraw() {
+void WINDOWS_TABLE::Redraw() const {
 	/*auto id = WINDOWS_TABLE::CELL_ID(origin);
 
 	while (id.GetColumn() < numColumns) {

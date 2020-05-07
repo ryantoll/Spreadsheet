@@ -10,13 +10,14 @@ using std::shared_ptr;
 using std::promise;
 using std::invalid_argument;
 using std::make_shared;
+using namespace RYANS_UTILITIES;
 
-//multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> CELL::subscriptionMap = { }; 	//<Subject, Observers>
-std::multimap<CELL::CELL_POSITION, CELL::CELL_POSITION> subscriptionMap{ }; 				//<Subject, Observers>
+auto subscriptionMap = std::multimap<CELL::CELL_POSITION, CELL::CELL_POSITION>{ }; 				//<Subject, Observers>
 
+// Part of an alternative function mapping scheme
 //map<wstring, shared_ptr<FUNCTION_CELL::FUNCTION>> functionNameMap{ {wstring(L"SUM"), shared_ptr<FUNCTION_CELL::SUM>()}, {wstring(L"AVERAGE"), shared_ptr<FUNCTION_CELL::AVERAGE>()} };
 
-shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, string contents) {
+shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const string& contents) {
 	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
 	// but also prevents accidental errors in failing to specify a location.
 	// R == 0 || C == 0 almost certainly indicates a failure to specify one or both arguments.
@@ -27,13 +28,13 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, string cont
 	// (Note that control flow immediately goes to any updating cells.)
 	if (contents == "") { cellMap.erase(position); NotifyAll(position); return nullptr; }
 
-	shared_ptr<CELL> cell;
+	auto cell = shared_ptr<CELL>();
 
-	wchar_t key = contents[0];
+	auto key = contents[0];
 	switch (key){
-	case L'\'': { cell.reset(new TEXT_CELL()); } break;			// Enforce textual interpretation for format: '__
-	case L'&': { cell.reset(new REFERENCE_CELL()); } break;		// Takes input in the form of: &R__C__ or &C__R__
-	case '=': { cell.reset(new FUNCTION_CELL()); } break;		// Not yet implemented...
+	case L'\'': { cell = make_shared<TEXT_CELL>(); } break;			// Enforce textual interpretation for format: '__
+	case L'&': { cell = make_shared<REFERENCE_CELL>(); } break;		// Takes input in the form of: &R__C__ or &C__R__
+	case '=': { cell = make_shared<FUNCTION_CELL>(); } break;		// Partial implementation available
 	case L'-':
 	case L'.':
 	case L'1':
@@ -45,8 +46,8 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, string cont
 	case L'7':
 	case L'8':
 	case L'9':
-	case L'0': { cell.reset(new NUMERICAL_CELL()); } break;		// Any cell beginning with a number or decimal is a number.
-	default: { cell.reset(new TEXT_CELL()); } break;			// By default, all cells are text cells unless otherwise determined.
+	case L'0': { cell = make_shared< NUMERICAL_CELL>(); } break;	// Any cell beginning with a number or decimal is a number.
+	default: { cell = make_shared<TEXT_CELL>(); } break;			// By default, all cells are text cells unless otherwise determined.
 	}
 
 	cell->position = position;
@@ -79,19 +80,28 @@ bool CELL::MoveCell(CELL_POSITION newPosition) {
 	return true;
 }
 
-void CELL::SubscribeToCell(CELL_POSITION subject) { subscriptionMap.insert({ subject, position }); }
+void CELL::SubscribeToCell(CELL_POSITION subject) const { subscriptionMap.insert({ subject, position }); }
 
-void CELL::UnsubscribeFromCell(CELL_POSITION subject) {
+void CELL::UnsubscribeFromCell(CELL_POSITION subject) const {
 	if (subscriptionMap.size() == 0) { return; }
-	auto beg = subscriptionMap.lower_bound(subject);
-	auto end = subscriptionMap.upper_bound(subject);
+	try {
+		auto beg = subscriptionMap.lower_bound(subject);
+		auto end = subscriptionMap.upper_bound(subject);
 
-	// Iterate through all elements with subject as key.
-	// Only erase the one where this cell is the observer.
-	while (beg != end) {		
-		if (beg->second == position) { subscriptionMap.erase(beg); break; }
-		else { beg++; }
+		// Iterate through all elements with subject as key.
+		// Only erase the one where this cell is the observer.
+		while (beg != end) {
+			if (beg->second == position) { subscriptionMap.erase(beg); break; }
+			else { beg++; }
+		}
 	}
+	// I don't know why, but sometimes upon application exit, the container invariants are broken
+	// The container size != 0, but every entry comes up as "Unable to read memory" in debugger
+	// An exception is thrown trying to access this invalid memory
+	// Upon program exit, a failed unsubscription is meaningless, though quite unexpected
+	// The catch block should handle the error so that the program exits gracefully and any other exit proceedures run as normal
+	// Still, it seems to be throwing in a way that doesn't get caught here, so I don't know 
+	catch (...) { }
 }
 
 void CELL::UpdateCell() { table->UpdateCell(position); }		// Call update cell on GUI base pointer.
@@ -134,11 +144,11 @@ void NUMERICAL_CELL::InitializeCell() {
 		for (auto c : rawReader()) { if (isalpha(c)) { throw invalid_argument("Error parsing input text. \nText could not be interpreted as a number"); } }
 		storedValue = stod(rawReader());
 	}
-	catch (...) { CELL::CELL_FACTORY::NewCell(position, "'" + rawReader()); }
+	catch (...) { NewCell(position, "'" + rawReader()); }
 }
 
 // I'm not sure how best to implement this mapping of text to function objects
-shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(string& inputText) {
+shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(const string& inputText) {
 	//return functionNameMap.find(inputText)->second;
 	//return make_shared<FUNCTION_CELL::SUM>();
 	
@@ -206,7 +216,7 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& i
 		auto row_index = min(inputText.find_first_of('R'), inputText.find_first_of('r'));
 		auto col_index = min(inputText.find_first_of('C'), inputText.find_first_of('c'));
 
-		CELL::CELL_POSITION pos;
+		auto pos = CELL::CELL_POSITION{ };
 
 		if (col_index > row_index) {
 			auto length = col_index - row_index - 1;
@@ -222,7 +232,7 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& i
 		//auto referencePosition = pos;
 		SubscribeToCell(pos);
 		if (cellMap.find(pos) == cellMap.end()) { error = true; }		// Dangling reference: set error flag. Still need to construct reference argument for future use.
-		return make_shared<FUNCTION_CELL::REFERENCE_ARGUMENT>(pos);
+		return make_shared<FUNCTION_CELL::REFERENCE_ARGUMENT>(*this, pos);
 	}
 	else if (isdigit(inputText[0])) { /*Convert to value*/ 
 		auto n = 0;
@@ -277,7 +287,7 @@ void FUNCTION_CELL::VALUE_ARGUMENT::UpdateArgument() {
 
 // May throw
 // Look up value upon creation
-FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(CELL_POSITION pos) : referencePosition(pos) {
+FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell, CELL_POSITION pos) : parentCell(&parentCell), referencePosition(pos) {
 	auto p = promise<double>{};
 	val = p.get_future();
 	try { 
