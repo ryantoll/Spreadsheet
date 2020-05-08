@@ -1,4 +1,3 @@
-#pragma once
 #ifndef __RYANS_UTILITIES
 #define __RYANS_UTILITIES
 
@@ -31,6 +30,14 @@ namespace RYANS_UTILITIES {
 
 		return output_C_string.get();
 	}
+
+	inline void Append_Wstring_to_Edit_Box(HWND h, const std::wstring& out) {
+		auto sel = GetWindowTextLength(h);
+		SendMessage(h, EM_SETSEL, (WPARAM)(sel), (LPARAM)sel);
+		SendMessage(h, EM_REPLACESEL, 0, (LPARAM)out.c_str());
+	}
+
+	inline void Append_String_to_Edit_Box(HWND h, const std::string& out) { Append_Wstring_to_Edit_Box(h, string_to_wstring(out)); }
 #endif // WIN32
 
 	// Tool used for parsing text.

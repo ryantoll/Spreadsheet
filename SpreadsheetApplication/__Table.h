@@ -6,11 +6,11 @@
 constexpr const auto TABLE_COMMAND_READ_CELL = 1;
 
 class TABLE_BASE;
-
 inline auto table = std::unique_ptr<TABLE_BASE>{ };
 
 // TABLE_BASE is an abstract base class that is specialized for the OS in question.
 // This decouples cell logic from OS dependence and maximizes portability.
+// Implementations of this class act as a "Bridge" pattern to map platform specific GUI operations to a generic interface.
 class TABLE_BASE {
 protected:
 	virtual void AddRow() = 0;
