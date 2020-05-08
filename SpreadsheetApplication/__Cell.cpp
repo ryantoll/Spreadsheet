@@ -23,10 +23,15 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const strin
 	// R == 0 || C == 0 almost certainly indicates a failure to specify one or both arguments.
 	if (position.row == 0 || position.column == 0) { throw invalid_argument("Neither Row 0, nor Column 0 exist."); }
 
+	// Avoid re-creating identical CELLs.
+	// If it already exists and is built from the same raw string, just return a pointer to the stored CELL.
+	auto oldCell = cellMap.find(position);
+	if (oldCell != cellMap.end() && contents == oldCell->second->rawContent) { return oldCell->second; }
+
 	// Empty contents argument not only fails to create a new cell, but deletes any cell that may already exist at that position.
 	// Notify any observing cells about the change *AFTER* the change has occurred.
 	// (Note that control flow immediately goes to any updating cells.)
-	if (contents == "") { cellMap.erase(position); NotifyAll(position); return nullptr; }
+	if (contents == "" && oldCell != cellMap.end()) { cellMap.erase(oldCell); NotifyAll(position); return nullptr; }
 
 	auto cell = shared_ptr<CELL>();
 
@@ -58,9 +63,12 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const strin
 	catch (...) { cell->error = true; }		// Failure of any sort will set the cell into an error state.
 	NotifyAll(position);					// Notify any cells that may be observing this position.
 
+	//table->UpdateCell(position);			// Notify GUI to update cell value.
 	return cellMap[position];				// Return stored cell so that failed numerical cells return the stored fallback text cell rather than the original failed numerical cell.
 }
 
+// Notifies observing CELLs of change in underlying data.
+// Each CELL is responsible for checking the new data.
 void CELL::CELL_FACTORY::NotifyAll(CELL_POSITION subject) {
 	auto beg = subscriptionMap.lower_bound(subject);
 	auto end = subscriptionMap.upper_bound(subject);
@@ -72,6 +80,7 @@ void CELL::CELL_FACTORY::NotifyAll(CELL_POSITION subject) {
 	}
 }
 
+// Move a cell to a new location, updating its key as well to reflect the change.
 bool CELL::MoveCell(CELL_POSITION newPosition) {
 	if (cellMap.find(newPosition) != cellMap.end()) { return false; }
 	cellMap[newPosition] = cellMap[position];
@@ -80,6 +89,7 @@ bool CELL::MoveCell(CELL_POSITION newPosition) {
 	return true;
 }
 
+// Subscribe to notification of changes in target CELL.
 void CELL::SubscribeToCell(CELL_POSITION subject) const { subscriptionMap.insert({ subject, position }); }
 
 void CELL::UnsubscribeFromCell(CELL_POSITION subject) const {
@@ -100,7 +110,7 @@ void CELL::UnsubscribeFromCell(CELL_POSITION subject) const {
 	// An exception is thrown trying to access this invalid memory
 	// Upon program exit, a failed unsubscription is meaningless, though quite unexpected
 	// The catch block should handle the error so that the program exits gracefully and any other exit proceedures run as normal
-	// Still, it seems to be throwing in a way that doesn't get caught here, so I don't know 
+	// Still, it seems to be throwing in a way that doesn't get caught here, so maybe an underlying function is declared noexcept?
 	catch (...) { }
 }
 
@@ -113,45 +123,46 @@ void TEXT_CELL::InitializeCell() {
 
 // Parese string into Row & Column positions of reference cell
 // Parsing allows for either ordering and is not case-sensitive
-// Subscribe to updates on referenced cell once it's position is determined
-void REFERENCE_CELL::InitializeCell() {
-	auto row_index = min(rawReader().find_first_of('R'), rawReader().find_first_of('r'));
-	auto col_index = min(rawReader().find_first_of('C'), rawReader().find_first_of('c'));
+CELL::CELL_POSITION ReferenceStringToCellPosition(const string& refString) {
+	auto row_index = min(refString.find_first_of('R'), refString.find_first_of('r'));
+	auto col_index = min(refString.find_first_of('C'), refString.find_first_of('c'));
 
-	CELL_POSITION pos;
-	
+	auto pos = CELL::CELL_POSITION{ };
+
 	if (col_index > row_index) {
 		auto length = col_index - row_index - 1;
-		pos.row = stoi(rawReader().substr(row_index + 1, length));
-		pos.column = stoi(rawReader().substr(col_index + 1));
+		pos.row = stoi(refString.substr(row_index + 1, length));
+		pos.column = stoi(refString.substr(col_index + 1));
 	}
 	else {
 		auto length = row_index - col_index - 1;
-		pos.column = stoi(rawReader().substr(col_index + 1, length));
-		pos.row = stoi(rawReader().substr(row_index + 1));
+		pos.column = stoi(refString.substr(col_index + 1, length));
+		pos.row = stoi(refString.substr(row_index + 1));
 	}
+	return pos;
+}
 
-	referencePosition = pos;
+// Subscribe to updates on referenced cell once it's position is determined
+void REFERENCE_CELL::InitializeCell() {
+	referencePosition = ReferenceStringToCellPosition(rawReader());
 	SubscribeToCell(referencePosition);
 }
 
+// Override default error behavior.
+// Any cell that seems like a number, but cannot be converted to such defaults to text.
+// Create a new cell at the same position with a prepended text-enforcement character.
+// Manually check for alpha characters since std::stod() is more forgiving than is appropriate for this situation.
 void NUMERICAL_CELL::InitializeCell() {
-	// Override default error behavior.
-	// Any cell that seems like a number, but cannot be converted to such defaults to text.
-	// Create a new cell at the same position with a prepended text-enforcement character.
-	// Manually check for alpha characters since std::stod() is more forgiving than is appropriate for this situation.
 	try { 
 		for (auto c : rawReader()) { if (isalpha(c)) { throw invalid_argument("Error parsing input text. \nText could not be interpreted as a number"); } }
 		storedValue = stod(rawReader());
 	}
-	catch (...) { NewCell(position, "'" + rawReader()); }
+	catch (...) { CELL::cell_factory.NewCell(position, "'" + rawReader()); }
 }
 
-// I'm not sure how best to implement this mapping of text to function objects
-shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(const string& inputText) {
-	//return functionNameMap.find(inputText)->second;
-	//return make_shared<FUNCTION_CELL::SUM>();
-	
+// I'm not sure how best to implement this mapping of text to function objects.
+// Each one must get a newly created object, lest they share the same arguments.
+shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(const string& inputText) {	
 	if (inputText == "SUM") { return make_shared<FUNCTION_CELL::SUM>(); }
 	else if (inputText == "AVERAGE") { return make_shared<FUNCTION_CELL::AVERAGE>(); }
 	else if (inputText == "PRODUCT") { return make_shared<FUNCTION_CELL::PRODUCT>(); }
@@ -159,7 +170,6 @@ shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(const string& inputText)
 	else if (inputText == "RECIPROCAL") { return make_shared<FUNCTION_CELL::RECIPROCAL>(); }
 	else if (inputText == "PI") { return make_shared<FUNCTION_CELL::PI>(); }
 	else { return make_shared<FUNCTION_CELL::FUNCTION>(); }
-	
 }
 
 // As I write this, I realize how complicated this parsing can become.
@@ -174,17 +184,17 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& i
 		if (n == string::npos) { break; }
 		inputText.erase(n, 1);
 	}
+	n = 0;	// Reset n for later use.
 
 	if (isalpha(inputText[0])) { /*Convert function name*/ 
-		n = 0; //auto n = size_t{ 0 };
 		while (isalpha(inputText[n])) { ++n; }
 		auto funcName = inputText.substr(0, n);
 		inputText.erase(0, n);
 
 		// Create approprate function cell from function name
 		// Call new parsing operation to fill out function arguments
-
-		auto func = MatchNameToFunction(funcName); func->Arguments.clear();
+		auto func = MatchNameToFunction(funcName);
+		func->Arguments.clear();
 		if (!ClearEnclosingChars(L'(', L')', inputText)) { throw invalid_argument("Error parsing input text. \nParentheses mismatch."); }	// Clear enclosing brackets of funciton call
 
 		// Segment text within parentheses into segments deliniated by commas
@@ -212,31 +222,13 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& i
 		return func;
 	}
 	else if (inputText[0] == '&') { /*Convert reference*/ 
-		// Literally copied from reference cell initiation. Consider unifying into one funciton for ease of maintainance.
-		auto row_index = min(inputText.find_first_of('R'), inputText.find_first_of('r'));
-		auto col_index = min(inputText.find_first_of('C'), inputText.find_first_of('c'));
-
-		auto pos = CELL::CELL_POSITION{ };
-
-		if (col_index > row_index) {
-			auto length = col_index - row_index - 1;
-			pos.row = stoi(inputText.substr(row_index + 1, length));
-			pos.column = stoi(inputText.substr(col_index + 1));
-		}
-		else {
-			auto length = row_index - col_index - 1;
-			pos.column = stoi(inputText.substr(col_index + 1, length));
-			pos.row = stoi(inputText.substr(row_index + 1));
-		}
-
-		//auto referencePosition = pos;
+		auto pos = ReferenceStringToCellPosition(inputText);
 		SubscribeToCell(pos);
 		if (cellMap.find(pos) == cellMap.end()) { error = true; }		// Dangling reference: set error flag. Still need to construct reference argument for future use.
 		return make_shared<FUNCTION_CELL::REFERENCE_ARGUMENT>(*this, pos);
 	}
-	else if (isdigit(inputText[0])) { /*Convert to value*/ 
-		auto n = 0;
-		while (isdigit(inputText[n])) { ++n; }
+	else if (isdigit(inputText[0]) || inputText[0] == '.' || inputText[0] == '-') { /*Convert to value*/
+		while (isdigit(inputText[n]) || inputText[n] == '.' || inputText[n] == '-') { ++n; }	// Keep grabbing chars until an invalid char is reached
 		auto num = inputText.substr(0, n);
 		inputText.erase(0, n);
 		return make_shared<FUNCTION_CELL::VALUE_ARGUMENT>(stod(num));	// wstring -> double -> Value Argument
@@ -252,41 +244,45 @@ void FUNCTION_CELL::InitializeCell() {
 	storedValue = func.val.get();
 }
 
+// Recalculate function when an underlying reference argument is changed.
 void FUNCTION_CELL::UpdateCell() {
-	//func.val = std::future<double>();
+	displayValue = "";
 	error = false;		// Reset error flag in case there was a prior error
 	func.UpdateArgument();
 	storedValue = func.val.get();
 	CELL::UpdateCell();
 }
 
+// By default, FUNCTION assumes a single argument and simply grab its value
 void FUNCTION_CELL::FUNCTION::Function() {
-	auto p = promise<double>{};
+	auto p = promise<double>{ };
 	val = p.get_future();
 	if (Arguments.size() == 0) { error = true; return; }
 	auto x = *Arguments.begin();
-	p.set_value(x->val.get());		// By default, assume a single argument and simply grab its value
+	p.set_value(x->val.get());
 }
 
+// Update FUNCTION by first updating all arguments, then calling the function again.
 void FUNCTION_CELL::FUNCTION::UpdateArgument() {
-	for (auto arg : Arguments) { arg->UpdateArgument(); }	// Update each argument before recalculating function
+	for (auto arg : Arguments) { arg->UpdateArgument(); }
 	Function();
 }
 
+// A single value merely needs to set the associated future with the given value.
 FUNCTION_CELL::VALUE_ARGUMENT::VALUE_ARGUMENT(double arg): storedArgument(arg) {
 	auto p = promise<double>{};
 	val = p.get_future();
 	p.set_value(arg);
 }
 
+// Ditto for updating the argument.
 void FUNCTION_CELL::VALUE_ARGUMENT::UpdateArgument() {
 	auto p = promise<double>{};
 	val = p.get_future();
 	p.set_value(storedArgument);
 }
 
-// May throw
-// Look up value upon creation
+// Reference arugment grabs value of reference and stores the result in the associated future.
 FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell, CELL_POSITION pos) : parentCell(&parentCell), referencePosition(pos) {
 	auto p = promise<double>{};
 	val = p.get_future();
@@ -294,14 +290,19 @@ FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell,
 		auto x = cellMap.at(pos)->DisplayOutput();		// 
 		p.set_value(stod(x));	// Stored value may need to be tracked separately from display value eventually
 	}
-	catch (...) { }
+	catch (...) { }		// Constructor should not throw. Create regardless and check elsewhere for dangling reference.
 }
 
+// Ditto for update
 void FUNCTION_CELL::REFERENCE_ARGUMENT::UpdateArgument() {
 	auto p = promise<double>{};
 	val = p.get_future();
 	p.set_value(stod(cellMap.at(referencePosition)->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
 }
+
+/*////////////////////////////////////////////////////////////
+// Procedures for supported FUNCTION_CELL::FUNCTIONs
+*/////////////////////////////////////////////////////////////
 
 void FUNCTION_CELL::SUM::Function() {
 	if (Arguments.size() == 0) { throw invalid_argument("Error parsing input text.\nNo arguments provided."); }

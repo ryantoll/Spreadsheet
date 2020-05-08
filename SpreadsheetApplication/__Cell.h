@@ -43,8 +43,6 @@ protected:
 	CELL_POSITION position;
 
 	CELL() {}
-	static std::shared_ptr<CELL> NewCell(CELL_POSITION p, const std::string& s) { return CELL_FACTORY::NewCell(p, s); }
-
 	void SubscribeToCell(CELL_POSITION subject) const;
 	void UnsubscribeFromCell(CELL_POSITION) const;
 
@@ -99,7 +97,7 @@ public:
 	std::string DisplayOutput() const override {
 		auto out = std::string{};
 		auto itCell = cellMap.find(referencePosition);
-		if (itCell == cellMap.end()) { out = "!REF!"; }
+		if (itCell == cellMap.end() || itCell->first == position) { out = "!REF!"; }
 		else { out = itCell->second->DisplayOutput(); }
 		return error ? "!ERROR!" : out;
 	}
@@ -128,7 +126,6 @@ public:
 // This alternate strategy is shown in comments for completeness.
 class FUNCTION_CELL : public NUMERICAL_CELL {
 public:
-	virtual ~FUNCTION_CELL() {}
 	void InitializeCell() override;
 	void UpdateCell() override;		// Need to add recalculate logic here for when reference cells update
 
