@@ -26,7 +26,7 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const strin
 	// Avoid re-creating identical CELLs.
 	// If it already exists and is built from the same raw string, just return a pointer to the stored CELL.
 	auto oldCell = cellMap.find(position);
-	if (oldCell != cellMap.end() && contents == oldCell->second->rawContent) { return oldCell->second; }
+	if (oldCell != cellMap.end() && contents == oldCell->second->rawContent) { table->UpdateCell(position); return oldCell->second; }
 
 	// Empty contents argument not only fails to create a new cell, but deletes any cell that may already exist at that position.
 	// Notify any observing cells about the change *AFTER* the change has occurred.

@@ -24,16 +24,37 @@ public:
 	virtual void DrawTableOutline() noexcept = 0;
 	virtual void Resize() noexcept = 0;
 	virtual void Redraw() const noexcept = 0;
+
+	virtual void FocusCell(CELL::CELL_POSITION) noexcept = 0;
+	virtual void UnfocusCell(CELL::CELL_POSITION) noexcept = 0;
+	virtual void FocusEntryBox() noexcept = 0;
+	virtual void UnfocusEntryBox(CELL::CELL_POSITION) noexcept = 0;
+
+	virtual void FocusUp1(CELL::CELL_POSITION) noexcept = 0;
+	virtual void FocusDown1(CELL::CELL_POSITION) noexcept = 0;
+	virtual void FocusRight1(CELL::CELL_POSITION) noexcept = 0;
+	virtual void FocusLeft1(CELL::CELL_POSITION) noexcept = 0;
+
+	virtual bool CreateNewCell(CELL::CELL_POSITION, std::string) const noexcept = 0;
 	virtual void UpdateCell(CELL::CELL_POSITION) const noexcept = 0;
+	virtual void LockTargetCell(CELL::CELL_POSITION) noexcept = 0;
+	virtual void ReleaseTargetCell() noexcept = 0;
+	virtual CELL::CELL_POSITION TargetCellGet() const noexcept = 0;
 };
+
+// Windows-specific code is segmented with a preprocessor command
+// Code for the appropriate system can be selected by this means
+#ifdef WIN32
+inline WNDPROC EditHandler;
+inline HWND hParent, hTable, h_Text_Edit_Bar;
+LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK EntryBarWindowProc(HWND, UINT, WPARAM, LPARAM);
 
 // Table class specialized for a Windows OS GUI
 class WINDOWS_TABLE : public TABLE_BASE {
 public:
 	class CELL_ID;
 	class CELL_WINDOW;
-	friend LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
-	friend LRESULT CALLBACK EntryBarWindowProc(HWND, UINT, WPARAM, LPARAM);
 protected:
 	int numColumns{ 0 };
 	int numRows{ 0 };
@@ -41,7 +62,9 @@ protected:
 	int height{ 25 };
 	int x0{ 0 };
 	int y0{ 25 };
-	CELL::CELL_POSITION origin{ 0, 0 };		// Origin is the "off-the-begining" cell to the upper-left of the upper-left cell.
+	CELL::CELL_POSITION origin{ 0, 0 };		// Origin is the "off-the-begining" cell to the upper-left of the upper-left cell
+	CELL::CELL_POSITION posTargetCell{ };	// Tracks position of cell currently associated with upper edit box, may be blank
+	CELL::CELL_POSITION mostRecentCell{ };	// Tracks position of most recently selected cell for either target selection or new cell creation
 public:
 	~WINDOWS_TABLE();						// Hook for any on-exit logic
 	void AddRow() noexcept override;
@@ -55,6 +78,21 @@ public:
 	void Resize() noexcept override;
 	void Redraw() const noexcept override;
 	void UpdateCell(CELL::CELL_POSITION) const noexcept override;
+
+	void FocusCell(CELL::CELL_POSITION) noexcept override;
+	void UnfocusCell(CELL::CELL_POSITION) noexcept override;
+	void FocusEntryBox() noexcept override;
+	void UnfocusEntryBox(CELL::CELL_POSITION) noexcept override;
+
+	void FocusUp1(CELL::CELL_POSITION) noexcept override;
+	void FocusDown1(CELL::CELL_POSITION) noexcept override;
+	void FocusRight1(CELL::CELL_POSITION) noexcept override;
+	void FocusLeft1(CELL::CELL_POSITION) noexcept override;
+
+	bool CreateNewCell(CELL::CELL_POSITION, std::string) const noexcept;
+	void LockTargetCell(CELL::CELL_POSITION) noexcept override;
+	void ReleaseTargetCell() noexcept override;
+	CELL::CELL_POSITION TargetCellGet() const noexcept override;
 };
 
 // This is a utility class for converting between window IDs and row/column indicies.
@@ -92,5 +130,7 @@ public:
 	auto& IncrementColumn() noexcept { position.column++; Win_ID_From_Position(); return *this; }
 	auto& DecrementColumn() noexcept { position.column--; Win_ID_From_Position(); return *this; }
 };
+
+#endif // WIN32
 
 #endif //!__TABLE_CLASS

@@ -30,14 +30,8 @@
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Resource.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="SpreadsheetApplication.h">
       <Filter>Header Files\Top-Level Window</Filter>
-    </ClInclude>
-    <ClInclude Include="targetver.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="__Cell.h">
       <Filter>Header Files\Table</Filter>
@@ -47,6 +41,12 @@
     </ClInclude>
     <ClInclude Include="Utilities.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>Header Files\Top-Level Window</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>Header Files\Top-Level Window</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

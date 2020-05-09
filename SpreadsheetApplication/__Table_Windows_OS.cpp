@@ -1,18 +1,17 @@
 #include "stdafx.h"
 #include "Utilities.h"
 #include "__Table.h"
-#include <WinUser.h>
 
 using std::wstring;
 using std::to_wstring;
 using std::vector;
 using namespace RYANS_UTILITIES;
 
+#ifdef WIN32
+
+#include <WinUser.h>
+
 const unsigned long id_Table_Background{ 1001 }, id_Text_Edit_Bar{ 1002 };
-WNDPROC EditHandler;
-HWND hParent, hTable, h_Text_Edit_Bar;
-LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
-LRESULT CALLBACK EntryBarWindowProc(HWND, UINT, WPARAM, LPARAM);
 
 // Initial window setup
 void WINDOWS_TABLE::DrawTableOutline() noexcept {
@@ -35,114 +34,11 @@ void WINDOWS_TABLE::DrawTableOutline() noexcept {
 }
 
 // Logic for Cell Windows to construct and display the appropriate CELL based upon user input string
-bool CreateNewCell(HWND hMostRecentCell, wstring rawInput) noexcept {
-	SetWindowText(h_Text_Edit_Bar, L"");														// Clear entry bar
-	auto id = WINDOWS_TABLE::CELL_ID(hMostRecentCell);
-	auto cell = CELL::cell_factory.NewCell(id.GetCellPosition(), wstring_to_string(rawInput));	// Create new cell
+bool WINDOWS_TABLE::CreateNewCell(CELL::CELL_POSITION pos, std::string rawInput) const noexcept {
+	if (pos == CELL::CELL_POSITION{ }) { return false; }
+	SetWindowText(h_Text_Edit_Bar, L"");										// Clear entry bar
+	auto cell = CELL::cell_factory.NewCell(pos, rawInput);	// Create new cell
 	return cell ? true : false;
-}
-
-// This window proceedure is what gives cells much of their UI functionality.
-// Features include using arrow keys to move between cells and responding to user focus.
-// Without this, cells would only display text on character input.
-LRESULT CALLBACK CellWindowProc(HWND hEditBox, UINT message, WPARAM wParam, LPARAM lParam) {
-	static auto hTargetCell = HWND{ };		// For switching between cells and upper input bar, track which cell is focused.
-	switch (message)
-	{
-	case WM_SETFOCUS: {
-		// If coming in from upper input box, set cell to show that text
-		// Otherwise, show the raw text (if any) associated with that cell
-		if (reinterpret_cast<HWND>(wParam) == h_Text_Edit_Bar && hTargetCell == hEditBox) {
-			auto text = Edit_Box_to_Wstring(h_Text_Edit_Bar);
-			SetWindowText(hEditBox, text.c_str());
-			break;
-		}
-
-		if (hTargetCell == HWND{ }) { hTargetCell = HWND{ }; }					// If there is no target, this is now it.
-		auto id = WINDOWS_TABLE::CELL_ID(GetDlgCtrlID(hEditBox));
-		auto itCell = cellMap.find(id.GetCellPosition());
-		if (itCell == cellMap.end()) { break; }									// Exit here if cell doesn't exist.
-		auto out = string_to_wstring(itCell->second->DisplayRawContent());
-		SetWindowText(h_Text_Edit_Bar, out.c_str());							// Otherwise, display raw content in entry bar.
-		SetWindowText(hEditBox, out.c_str());									// Show raw content rather than display value when cell is selected for editing.
-		SendMessage(hEditBox, EM_SETSEL, 0, -1);								// Select all within cell.
-	} break;
-	case WM_KILLFOCUS: {
-		auto hComparison = reinterpret_cast<HWND>(wParam);
-		if (hComparison != h_Text_Edit_Bar) { CreateNewCell(hEditBox, Edit_Box_to_Wstring(hEditBox)); hTargetCell = HWND{ }; break; }	// Create new CELL if not continuing editing in upper entry box
-		else if (hTargetCell == HWND{ }) { hTargetCell = hEditBox; }	// Lock on to target cell
-	} break;
-	case WM_KEYDOWN: {
-		switch (wParam) {
-		case VK_RIGHT: {
-			auto id = WINDOWS_TABLE::CELL_ID(hEditBox);
-			if (id.GetColumn() >= table->GetNumColumns()) { /*winTable->origin.column++; winTable->Resize();*/ break; }	// Stop at right edge
-			id.IncrementColumn().GetWindowID();			// Increment cell ID
-			SetFocus(id.GetWindowHandle());				// Set focus to new cell
-		} break;
-		case VK_LEFT: {
-			auto id = WINDOWS_TABLE::CELL_ID(hEditBox);
-			if (id.GetColumn() == 1) { break; }			// Stop at left edge
-			id.DecrementColumn().GetWindowID();			// Decrement cell ID
-			SetFocus(id.GetWindowHandle());				// Set focus to new cell
-		} break;
-		case VK_UP: {
-			auto id = WINDOWS_TABLE::CELL_ID(hEditBox);
-			if (id.GetRow() == 1) { break; }			// Stop at bottom edge
-			id.DecrementRow().GetWindowID();			// Decrement cell ID
-			SetFocus(id.GetWindowHandle());				// Set focus to new cell
-		} break;
-		case VK_DOWN: // vvvvvv__FallThrough__vvvvvv
-		case VK_RETURN: {
-			auto id = WINDOWS_TABLE::CELL_ID(hEditBox);
-			if (id.GetRow() >= table->GetNumRows()) { /*winTable->origin.column++; winTable->Resize();*/ break; }		// Stop at top edge
-			id.IncrementRow().GetWindowID();	// Increment cell ID
-			SetFocus(id.GetWindowHandle());		// Set focus to new cell
-		} break;
-		}
-	}
-	break;
-	}
-
-	return CallWindowProc(EditHandler, hEditBox, message, wParam, lParam);
-}
-
-// Custom behavior of upper entry box
-LRESULT CALLBACK EntryBarWindowProc(HWND hEntryBox, UINT message, WPARAM wParam, LPARAM lParam) {
-	static auto hMostRecentCell = HWND{ }, hTargetCell = HWND{ };
-	switch (message)
-	{
-	case WM_SETFOCUS: {		// Set window text to that of the most recent edit box with focus
-		hMostRecentCell = reinterpret_cast<HWND>(wParam);
-		if (hTargetCell != HWND{ }) { break; }			// If there is a target, don't reset text
-		hTargetCell = hMostRecentCell;					// Lock onto target cell
-		auto text = Edit_Box_to_Wstring(hTargetCell);	
-		SetWindowText(hEntryBox, text.c_str());			// Set text to that of target cell to continue editing
-	} break;
-	case WM_KILLFOCUS: {
-		if (hTargetCell == HWND{ }) { break; }							// Don't do anything if there is no target cell
-		auto hNewCell = reinterpret_cast<HWND>(wParam);
-		if (hNewCell == hTargetCell) { hTargetCell = HWND{ }; break; }	// Release focus when selecting straight to target to open it up for new target selection.
-		auto id = WINDOWS_TABLE::CELL_ID(hNewCell);
-		auto out = wstring{ L"&" };
-		out += L"R" + to_wstring(id.GetRow());
-		out += L"C" + to_wstring(id.GetColumn());
-		SendMessage(hEntryBox, EM_REPLACESEL, 0, (LPARAM)out.c_str());	// Get row and column of selected cell and add reference text to upper edit bar
-		SetFocus(hEntryBox);											// Set focus back to upper edit bar
-	} break;
-	case WM_KEYDOWN: {
-		switch (wParam) {
-		case VK_RETURN: {
-			auto id = WINDOWS_TABLE::CELL_ID(hTargetCell);
-			SetFocus(hTargetCell);												// Set focus back to target cell
-			//SendMessage(hTargetCell, WM_KEYDOWN, (WPARAM)VK_RETURN, NULL);	// Send "Return-key" message to target cell		// This message seems to get lost in the suffle  :/  User needs to press "return" again.
-			hTargetCell = HWND{ };												// Release focus
-		} break;
-		}
-	} break;
-	}
-
-	return CallWindowProc(EditHandler, hEntryBox, message, wParam, lParam);
 }
 
 WINDOWS_TABLE::~WINDOWS_TABLE() { }		// Hook for any on-exit logic
@@ -245,4 +141,88 @@ void WINDOWS_TABLE::Redraw() const noexcept {
 	}*/
 }
 
+void WINDOWS_TABLE::FocusCell(CELL::CELL_POSITION pos) noexcept {
+	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	auto posCreateCell = CELL::CELL_POSITION{ };
+	auto text = wstring{ };
+	if (pos == posTargetCell) {
+		ReleaseTargetCell();													// Release focus when selecting straight to target to open it up for new target selection.
+		posCreateCell = pos;													// Create new cell at current position
+		text = Edit_Box_to_Wstring(h_Text_Edit_Bar);							// Text for cell creation comes from upper entry bar
+		mostRecentCell = CELL::CELL_POSITION{ };								// This should not be queued for creation nor for targetting until selected again
+		SendMessage(id.GetWindowHandle(), WM_KEYDOWN, (WPARAM)VK_RETURN, NULL);	// Send Return-key message to self to move down to next cell
+	}
+	else {
+		auto itCell = cellMap.find(id.GetCellPosition());
+		if (itCell != cellMap.end()) { 
+			text = string_to_wstring(itCell->second->DisplayRawContent());
+			SetWindowText(h_Text_Edit_Bar, text.c_str());					// Otherwise, display raw content in entry bar.
+			SetWindowText(id.GetWindowHandle(), text.c_str());				// Show raw content rather than display value when cell is selected for editing.
+			SendMessage(id.GetWindowHandle(), EM_SETSEL, 0, -1);			// Select all within cell.
+		}
+		posCreateCell = mostRecentCell;						// Create cell at prior location
+		id = WINDOWS_TABLE::CELL_ID{ posCreateCell };
+		text = Edit_Box_to_Wstring(id.GetWindowHandle());	// Use text stored in prior cell
+		mostRecentCell = pos;								// This is now the most recent cell
+	}
+	CreateNewCell(posCreateCell, wstring_to_string(text));	// Create new cell
+}
+
+void WINDOWS_TABLE::UnfocusCell(CELL::CELL_POSITION pos) noexcept { }
+
+void WINDOWS_TABLE::FocusEntryBox() noexcept {
+	if (posTargetCell != CELL::CELL_POSITION{ }) { return; }	// If there is a target, don't reset text
+	LockTargetCell(mostRecentCell);								// Lock onto target cell
+	auto id = WINDOWS_TABLE::CELL_ID{ mostRecentCell };
+	auto text = Edit_Box_to_Wstring(id.GetWindowHandle());
+	SetWindowText(h_Text_Edit_Bar, text.c_str());				// Set text to that of target cell to continue editing
+}
+
+void WINDOWS_TABLE::UnfocusEntryBox(CELL::CELL_POSITION pos) noexcept {
+	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	if (posTargetCell != CELL::CELL_POSITION{ } && pos != posTargetCell) {
+		auto out = wstring{ L"&" };
+		out += L"R" + to_wstring(id.GetRow());
+		out += L"C" + to_wstring(id.GetColumn());
+		SetFocus(h_Text_Edit_Bar);												// Set focus back to upper edit bar
+		SendMessage(h_Text_Edit_Bar, EM_REPLACESEL, 0, (LPARAM)out.c_str());	// Get row and column of selected cell and add reference text to upper edit bar
+	}
+}
+
+void WINDOWS_TABLE::FocusUp1(CELL::CELL_POSITION pos) noexcept {
+	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	if (id.GetRow() == 1) { return; }			// Stop at bottom edge
+	id.DecrementRow().GetWindowID();			// Decrement cell ID
+	SetFocus(id.GetWindowHandle());				// Set focus to new cell
+}
+
+void WINDOWS_TABLE::FocusDown1(CELL::CELL_POSITION pos) noexcept {
+	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	if (id.GetRow() >= table->GetNumRows()) { /*winTable->origin.column++; winTable->Resize();*/ return; }		// Stop at top edge
+	id.IncrementRow().GetWindowID();	// Increment cell ID
+	SetFocus(id.GetWindowHandle());		// Set focus to new cell
+}
+
+void WINDOWS_TABLE::FocusRight1(CELL::CELL_POSITION pos) noexcept {
+	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	if (id.GetColumn() >= table->GetNumColumns()) { /*winTable->origin.column++; winTable->Resize();*/ return; }	// Stop at right edge
+	id.IncrementColumn().GetWindowID();			// Increment cell ID
+	SetFocus(id.GetWindowHandle());				// Set focus to new cell
+}
+
+void WINDOWS_TABLE::FocusLeft1(CELL::CELL_POSITION pos) noexcept {
+	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	if (id.GetColumn() == 1) { return; }		// Stop at left edge
+	id.DecrementColumn().GetWindowID();			// Decrement cell ID
+	SetFocus(id.GetWindowHandle());				// Set focus to new cell
+}
+
 HWND WINDOWS_TABLE::CELL_ID::GetWindowHandle() const noexcept { return GetDlgItem(hTable, windowID); }
+
+void WINDOWS_TABLE::LockTargetCell(CELL::CELL_POSITION pos) noexcept { if (posTargetCell != CELL::CELL_POSITION{ }) { return; } posTargetCell = pos; }
+
+void WINDOWS_TABLE::ReleaseTargetCell() noexcept { posTargetCell = CELL::CELL_POSITION{ }; }
+
+CELL::CELL_POSITION WINDOWS_TABLE::TargetCellGet() const noexcept { return posTargetCell; }
+
+#endif // WIN32
