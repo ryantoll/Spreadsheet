@@ -11,17 +11,20 @@ inline auto table = std::unique_ptr<TABLE_BASE>{ };
 // TABLE_BASE is an abstract base class that is specialized for the OS in question.
 // This decouples cell logic from OS dependence and maximizes portability.
 // Implementations of this class act as a "Bridge" pattern to map platform specific GUI operations to a generic interface.
+// I think none of these throw, so I'll add noexcept specification.
 class TABLE_BASE {
-protected:
-	virtual void AddRow() = 0;
-	virtual void AddColumn() = 0;
-	virtual void RemoveRow() = 0;
-	virtual void RemoveColumn() = 0;
 public:
-	virtual void DrawTableOutline() = 0;
-	virtual void Resize() = 0;
-	virtual void Redraw() const = 0;
-	virtual void UpdateCell(CELL::CELL_POSITION) const = 0;
+	virtual void AddRow() noexcept = 0;
+	virtual void AddColumn() noexcept = 0;
+	virtual void RemoveRow() noexcept = 0;
+	virtual void RemoveColumn() noexcept = 0;
+	virtual unsigned int GetNumColumns() const noexcept = 0;
+	virtual unsigned int GetNumRows() const noexcept = 0;
+
+	virtual void DrawTableOutline() noexcept = 0;
+	virtual void Resize() noexcept = 0;
+	virtual void Redraw() const noexcept = 0;
+	virtual void UpdateCell(CELL::CELL_POSITION) const noexcept = 0;
 };
 
 // Table class specialized for a Windows OS GUI
@@ -39,44 +42,50 @@ protected:
 	int x0{ 0 };
 	int y0{ 25 };
 	CELL::CELL_POSITION origin{ 0, 0 };		// Origin is the "off-the-begining" cell to the upper-left of the upper-left cell.
-
-	void AddRow() override;
-	void AddColumn() override;
-	void RemoveRow() override;
-	void RemoveColumn() override;
 public:
 	~WINDOWS_TABLE();						// Hook for any on-exit logic
-	void DrawTableOutline() override;
-	void Resize() override;
-	void Redraw() const override;
-	void UpdateCell(CELL::CELL_POSITION) const override;
+	void AddRow() noexcept override;
+	void AddColumn() noexcept override;
+	void RemoveRow() noexcept override;
+	void RemoveColumn() noexcept override;
+	unsigned int GetNumColumns() const noexcept { return numColumns; }
+	unsigned int GetNumRows() const noexcept { return numRows; }
+
+	void DrawTableOutline() noexcept override;
+	void Resize() noexcept override;
+	void Redraw() const noexcept override;
+	void UpdateCell(CELL::CELL_POSITION) const noexcept override;
 };
 
 // This is a utility class for converting between window IDs and row/column indicies.
 // The purpose here is to be able to encode the cell position in the window ID, which is stored by the Windows OS.
+// The ID will correspond to the row and column number with 16 bits representing each.
 // This is scoped within the WINDOWS_TABLE class to indicate to clients that it's intended usage is only within the context of WINDOWS_TABLE usage.
+// Define constructors as 'explicit' to avoid any implicit conversions since they take exactly one argument.
 // I think none of these throw, so I'll add noexcept specification.
 class WINDOWS_TABLE::CELL_ID {
 	CELL::CELL_POSITION position;
-	int windowID{ 0 };
-	void Win_ID_From_Position() noexcept { windowID = (position.column << 8) + position.row; }
+	unsigned long windowID{ 0 };
+	void Win_ID_From_Position() noexcept { windowID = (position.column << 16) + position.row; }
 	void Position_From_Win_ID() noexcept {
-		position.column = windowID >> 8;
-		position.row = (windowID - position.column * 256);
+		position.column = windowID >> 16;
+		position.row = (windowID - position.column * 65536);
 	}
 public:
-	CELL_ID(CELL::CELL_POSITION newPosition): position(newPosition) { Win_ID_From_Position(); }
-	CELL_ID(int newWindowID): windowID(newWindowID) { Position_From_Win_ID(); }
+	explicit CELL_ID(CELL::CELL_POSITION newPosition): position(newPosition) { Win_ID_From_Position(); }
+	explicit CELL_ID(unsigned long newWindowID): windowID(newWindowID) { Position_From_Win_ID(); }
+	explicit CELL_ID(HWND h) : windowID(GetDlgCtrlID(h)) { Position_From_Win_ID(); }
 
 	void SetWindowID(int newID) noexcept { windowID = newID; Position_From_Win_ID(); }
 	auto& SetRow(const unsigned int newRowIndex) noexcept { position.row = newRowIndex; Win_ID_From_Position(); return *this; }
 	auto& SetColumn(const unsigned int newColumnIndex) noexcept { position.column = newColumnIndex; Win_ID_From_Position(); return *this; }
 	auto& SetCellPosition(CELL::CELL_POSITION newPosition) noexcept { position = newPosition; Win_ID_From_Position(); return *this; }
 
-	int GetWindowID() const noexcept { return windowID; }
-	int GetRow() const noexcept { return position.row; }
-	int GetColumn() const noexcept { return position.column; }
+	auto GetWindowID() const noexcept { return windowID; }
+	auto GetRow() const noexcept { return position.row; }
+	auto GetColumn() const noexcept { return position.column; }
 	auto GetCellPosition() const noexcept { return position; }
+	HWND GetWindowHandle() const noexcept;	// Defined in .cpp file to have access to the parent table handle
 
 	auto& IncrementRow() noexcept { position.row++; Win_ID_From_Position(); return *this; }
 	auto& DecrementRow() noexcept { position.row--; Win_ID_From_Position(); return *this; }
