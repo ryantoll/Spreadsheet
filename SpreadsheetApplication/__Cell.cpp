@@ -63,7 +63,7 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const strin
 	catch (...) { cell->error = true; }		// Failure of any sort will set the cell into an error state.
 	NotifyAll(position);					// Notify any cells that may be observing this position.
 
-	//table->UpdateCell(position);			// Notify GUI to update cell value.
+	table->UpdateCell(position);			// Notify GUI to update cell value.
 	return cellMap[position];				// Return stored cell so that failed numerical cells return the stored fallback text cell rather than the original failed numerical cell.
 }
 
