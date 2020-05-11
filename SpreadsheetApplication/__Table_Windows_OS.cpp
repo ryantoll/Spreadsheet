@@ -34,11 +34,9 @@ void WINDOWS_TABLE::DrawTableOutline() noexcept {
 }
 
 // Logic for Cell Windows to construct and display the appropriate CELL based upon user input string
-bool WINDOWS_TABLE::CreateNewCell(CELL::CELL_POSITION pos, std::string rawInput) const noexcept {
-	if (pos == CELL::CELL_POSITION{ }) { return false; }
-	SetWindowText(h_Text_Edit_Bar, L"");										// Clear entry bar
-	auto cell = CELL::cell_factory.NewCell(pos, rawInput);	// Create new cell
-	return cell ? true : false;
+std::shared_ptr<CELL> WINDOWS_TABLE::CreateNewCell(CELL::CELL_POSITION pos, std::string rawInput) const noexcept {
+	if (pos == CELL::CELL_POSITION{ }) { return nullptr; }
+	return CELL::cell_factory.NewCell(pos, rawInput);	// Create new cell
 }
 
 WINDOWS_TABLE::~WINDOWS_TABLE() { }		// Hook for any on-exit logic
@@ -156,10 +154,11 @@ void WINDOWS_TABLE::FocusCell(CELL::CELL_POSITION pos) noexcept {
 		auto itCell = cellMap.find(id.GetCellPosition());
 		if (itCell != cellMap.end()) { 
 			text = string_to_wstring(itCell->second->DisplayRawContent());
-			SetWindowText(h_Text_Edit_Bar, text.c_str());					// Otherwise, display raw content in entry bar.
 			SetWindowText(id.GetWindowHandle(), text.c_str());				// Show raw content rather than display value when cell is selected for editing.
 			SendMessage(id.GetWindowHandle(), EM_SETSEL, 0, -1);			// Select all within cell.
+			SetWindowText(h_Text_Edit_Bar, text.c_str());					// Otherwise, display raw content in entry bar.
 		}
+		else { SetWindowText(h_Text_Edit_Bar, L""); }		// Clear upper entry bar if selecting an empty cell
 		posCreateCell = mostRecentCell;						// Create cell at prior location
 		id = WINDOWS_TABLE::CELL_ID{ posCreateCell };
 		text = Edit_Box_to_Wstring(id.GetWindowHandle());	// Use text stored in prior cell

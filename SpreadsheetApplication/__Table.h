@@ -35,7 +35,7 @@ public:
 	virtual void FocusRight1(CELL::CELL_POSITION) noexcept = 0;
 	virtual void FocusLeft1(CELL::CELL_POSITION) noexcept = 0;
 
-	virtual bool CreateNewCell(CELL::CELL_POSITION, std::string) const noexcept = 0;
+	virtual std::shared_ptr<CELL> CreateNewCell(CELL::CELL_POSITION, std::string) const noexcept = 0;
 	virtual void UpdateCell(CELL::CELL_POSITION) const noexcept = 0;
 	virtual void LockTargetCell(CELL::CELL_POSITION) noexcept = 0;
 	virtual void ReleaseTargetCell() noexcept = 0;
@@ -71,13 +71,12 @@ public:
 	void AddColumn() noexcept override;
 	void RemoveRow() noexcept override;
 	void RemoveColumn() noexcept override;
-	unsigned int GetNumColumns() const noexcept { return numColumns; }
-	unsigned int GetNumRows() const noexcept { return numRows; }
+	unsigned int GetNumColumns() const noexcept override { return numColumns; }
+	unsigned int GetNumRows() const noexcept override { return numRows; }
 
 	void DrawTableOutline() noexcept override;
 	void Resize() noexcept override;
 	void Redraw() const noexcept override;
-	void UpdateCell(CELL::CELL_POSITION) const noexcept override;
 
 	void FocusCell(CELL::CELL_POSITION) noexcept override;
 	void UnfocusCell(CELL::CELL_POSITION) noexcept override;
@@ -89,7 +88,8 @@ public:
 	void FocusRight1(CELL::CELL_POSITION) noexcept override;
 	void FocusLeft1(CELL::CELL_POSITION) noexcept override;
 
-	bool CreateNewCell(CELL::CELL_POSITION, std::string) const noexcept;
+	std::shared_ptr<CELL> CreateNewCell(CELL::CELL_POSITION, std::string) const noexcept;
+	void UpdateCell(CELL::CELL_POSITION) const noexcept override;
 	void LockTargetCell(CELL::CELL_POSITION) noexcept override;
 	void ReleaseTargetCell() noexcept override;
 	CELL::CELL_POSITION TargetCellGet() const noexcept override;
