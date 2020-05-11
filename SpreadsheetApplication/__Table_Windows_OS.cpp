@@ -123,9 +123,10 @@ void WINDOWS_TABLE::Resize() noexcept {
 
 // Update cell text.
 void WINDOWS_TABLE::UpdateCell(CELL::CELL_POSITION position) const noexcept {
-	if (cellMap.find(position) == cellMap.end()) { return; }	// Return if no cell data exits
+	auto cell = CELL::GetCell(position);
+	if (!cell) { return; }	// Return if no cell data exits
 	auto id = WINDOWS_TABLE::CELL_ID{ position };
-	auto out = string_to_wstring(cellMap[position]->DisplayOutput());
+	auto out = string_to_wstring(cell->DisplayOutput());
 	SetWindowText(id.GetWindowHandle(), out.c_str());
 }
 
@@ -151,9 +152,10 @@ void WINDOWS_TABLE::FocusCell(CELL::CELL_POSITION pos) noexcept {
 		SendMessage(id.GetWindowHandle(), WM_KEYDOWN, (WPARAM)VK_RETURN, NULL);	// Send Return-key message to self to move down to next cell
 	}
 	else {
-		auto itCell = cellMap.find(id.GetCellPosition());
-		if (itCell != cellMap.end()) { 
-			text = string_to_wstring(itCell->second->DisplayRawContent());
+		//auto itCell = cellMap.find(id.GetCellPosition());
+		auto cell = CELL::GetCell(pos);
+		if (cell) {
+			text = string_to_wstring(cell->DisplayRawContent());
 			SetWindowText(id.GetWindowHandle(), text.c_str());				// Show raw content rather than display value when cell is selected for editing.
 			SendMessage(id.GetWindowHandle(), EM_SETSEL, 0, -1);			// Select all within cell.
 			SetWindowText(h_Text_Edit_Bar, text.c_str());					// Otherwise, display raw content in entry bar.
