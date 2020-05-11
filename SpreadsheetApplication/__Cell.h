@@ -27,16 +27,27 @@ public:
 private:
 	class CELL_FACTORY {
 	public:
+		//CELL_FACTORY();
 		static std::shared_ptr<CELL> NewCell(CELL_POSITION, const std::string&);
 		static void NotifyAll(CELL_POSITION);
 	};
 
+	// An "Observer" pattern is used to notify relevant cells when changes occur.
+	// Changes may cascade, so notifications need to handle that effectively.
+	// Stores a set of observers for each subject.
+	static std::map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>> subscriptionMap;		// <Subject, (set of) Observers>
+
+	// Map holds all non-null cells.
+	// The use of an associative container rather than a sequential container obviates the need for filler cells in empty positions.
+	// CELL_POSITION defines it's own operator< and operator== for use in map sorting.
+	// The choice of column sorting preempting row sorting is arbitrary. Either way is fine so long as it is consistent.
+	static std::map<CELL::CELL_POSITION, std::shared_ptr<CELL>> cellMap;
+	static std::mutex lkSubMap, lkCellMap;
 public:
 	static CELL_FACTORY cell_factory;
-
+	static std::shared_ptr<CELL> GetCell(CELL::CELL_POSITION);
 private:
 	std::string rawContent;
-	//static multimap<CELL_POSITION, CELL_POSITION> subscriptionMap;		//<Subject, Observers>
 protected:
 	std::string displayValue;
 	bool error{ false };
@@ -45,6 +56,7 @@ protected:
 	CELL() {}
 	void SubscribeToCell(CELL_POSITION subject) const;
 	void UnsubscribeFromCell(CELL_POSITION) const;
+	static void UnsubscribeFromCell(CELL_POSITION, CELL_POSITION);
 
 	// Sub-classes have read-only access to raw cell content.
 	// Any change in raw content should create/initialize a new CELL through the factory funciton.
@@ -57,6 +69,7 @@ public:
 	virtual void InitializeCell() { displayValue = rawContent; }
 	virtual bool MoveCell(CELL_POSITION newPosition);
 	virtual void UpdateCell();		// Invoked whenever a cell needs to update it's output.
+	CELL_POSITION GetPosition() { return position; }
 };
 
 inline bool operator< (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION& rhs) {
@@ -74,19 +87,11 @@ inline bool operator!= (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITIO
 	return !(lhs == rhs);
 }
 
-// Map holds all non-null cells.
-// The use of an associative container rather than a sequential container obviates the need for filler cells in empty positions.
-// CELL_POSITION defines it's own operator< and operator== for use in map sorting.
-// The choice of column sorting preempting row sorting is arbitrary. Either way is fine so long as it is consistent.
-// Note that an "Observer" pattern may be needed in association with cellMap to notify relevant cells when changes occur.
-// Changes may cascade, so notifications may need to specify what changes or which cells are potentially affected.
-inline auto cellMap = std::map<CELL::CELL_POSITION, std::shared_ptr<CELL>>{ };
-
 // A cell that is simply raw text merely outputs its text.
 class TEXT_CELL : public CELL {
 public:
 	virtual ~TEXT_CELL() {}
-	std::string DisplayOutput() const override { return displayValue; }	// Presumably this will never be in an error state.
+	std::string DisplayOutput() const override { return displayValue; }		// Presumably this will never be in an error state.
 	void InitializeCell() override;
 };
 
@@ -96,9 +101,9 @@ public:
 	virtual ~REFERENCE_CELL() { UnsubscribeFromCell(referencePosition); }
 	std::string DisplayOutput() const override {
 		auto out = std::string{};
-		auto itCell = cellMap.find(referencePosition);
-		if (itCell == cellMap.end() || itCell->first == position) { out = "!REF!"; }
-		else { out = itCell->second->DisplayOutput(); }
+		auto cell = GetCell(referencePosition);
+		if (!cell || cell->GetPosition() == position) { out = "!REF!"; }		// Dangling reference & reference to self both cause a reference error.
+		else { out = cell->DisplayOutput(); }
 		return error ? "!ERROR!" : out;
 	}
 	void InitializeCell() override;
@@ -150,15 +155,15 @@ public:
 
 	struct REFERENCE_ARGUMENT : public ARGUMENT {
 		REFERENCE_ARGUMENT(FUNCTION_CELL&, CELL_POSITION);
-		~REFERENCE_ARGUMENT() { parentCell->UnsubscribeFromCell(referencePosition); }
-		CELL_POSITION referencePosition;
-		std::shared_ptr<FUNCTION_CELL> parentCell;
+		~REFERENCE_ARGUMENT() { UnsubscribeFromCell(referencePosition, parentPosition); }
+		CELL_POSITION referencePosition, parentPosition;
 		void UpdateArgument() override;
 	};
 
 protected:
 	FUNCTION func;
-
+	
+	//void UnsubscribeFromCell(CELL::CELL_POSITION pos) const override { CELL::UnsubscribeFromCell(pos); }
 	std::shared_ptr<FUNCTION_CELL::ARGUMENT> ParseFunctionString(std::string&);
 public:
 	/*////////////////////////////////////////////////////////////

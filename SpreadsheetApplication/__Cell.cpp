@@ -10,9 +10,19 @@ using std::shared_ptr;
 using std::promise;
 using std::invalid_argument;
 using std::make_shared;
+using std::lock_guard;
+using std::mutex;
 using namespace RYANS_UTILITIES;
 
-auto subscriptionMap = std::multimap<CELL::CELL_POSITION, CELL::CELL_POSITION>{ }; 				//<Subject, Observers>
+// Initialize static data members of CELL
+// !!! -- IMPORTANT -- !!!	cellMap must be initialized after subscrptionMap		!!! -- IMPORTANT -- !!!
+// !!! -- IMPORTANT -- !!!	Improper ordering will cause program to crash upon exit	!!! -- IMPORTANT -- !!!
+// This is due to object lifetimes. Deconstruction of CELLs in cellMap cues unsubscription of CELL observation.
+// The CELL then searches through the deconstructed subscriptionMap to remove itself.
+// This causes an internal noexcept function to throw since it is traversing a tree that is no longer in a valid state.
+std::map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>> CELL::subscriptionMap{ };	// <Subject, Observers>
+std::map<CELL::CELL_POSITION, std::shared_ptr<CELL>> CELL::cellMap{ };					// Stores all CELLs
+mutex CELL::lkSubMap{ }, CELL::lkCellMap{ };
 
 // Part of an alternative function mapping scheme
 //map<wstring, shared_ptr<FUNCTION_CELL::FUNCTION>> functionNameMap{ {wstring(L"SUM"), shared_ptr<FUNCTION_CELL::SUM>()}, {wstring(L"AVERAGE"), shared_ptr<FUNCTION_CELL::AVERAGE>()} };
@@ -23,15 +33,17 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const strin
 	// R == 0 || C == 0 almost certainly indicates a failure to specify one or both arguments.
 	if (position.row == 0 || position.column == 0) { throw invalid_argument("Neither Row 0, nor Column 0 exist."); }
 
-	// Avoid re-creating identical CELLs.
-	// If it already exists and is built from the same raw string, just return a pointer to the stored CELL.
-	auto oldCell = cellMap.find(position);
-	if (oldCell != cellMap.end() && contents == oldCell->second->rawContent) { table->UpdateCell(position); return oldCell->second; }
-
 	// Empty contents argument not only fails to create a new cell, but deletes any cell that may already exist at that position.
 	// Notify any observing cells about the change *AFTER* the change has occurred.
 	// (Note that control flow immediately goes to any updating cells.)
-	if (contents == "" && oldCell != cellMap.end()) { cellMap.erase(oldCell); NotifyAll(position); return nullptr; }
+	auto oldCell = GetCell(position);
+	if (contents == "" && oldCell) { if (oldCell) { cellMap.erase(oldCell->position); NotifyAll(position); } return nullptr; }
+
+	// Avoid re-creating identical CELLs.
+	// If it already exists and is built from the same raw string, just return a pointer to the stored CELL.
+	if (oldCell && contents == oldCell->rawContent) { table->UpdateCell(position); return oldCell; }
+
+
 
 	auto cell = shared_ptr<CELL>();
 
@@ -58,26 +70,30 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const strin
 	cell->position = position;
 	cell->rawContent = contents;
 
-	cellMap[position] = cell;				// Add cell to cell map upon creation.
+	{
+		auto lk = lock_guard<mutex>{ lkCellMap };	// Lock map only for write operation.
+		cellMap[position] = cell;					// Add cell to cell map upon creation.
+	}
+
 	try { cell->InitializeCell(); }			// Call initialize on cell.
 	catch (...) { cell->error = true; }		// Failure of any sort will set the cell into an error state.
 	NotifyAll(position);					// Notify any cells that may be observing this position.
 
 	table->UpdateCell(position);			// Notify GUI to update cell value.
-	return cellMap[position];				// Return stored cell so that failed numerical cells return the stored fallback text cell rather than the original failed numerical cell.
+	return GetCell(position);				// Return stored cell so that failed numerical cells return the stored fallback text cell rather than the original failed numerical cell.
 }
 
 // Notifies observing CELLs of change in underlying data.
 // Each CELL is responsible for checking the new data.
 void CELL::CELL_FACTORY::NotifyAll(CELL_POSITION subject) {
-	auto beg = subscriptionMap.lower_bound(subject);
-	auto end = subscriptionMap.upper_bound(subject);
-
-	while (beg != end) {
-		try { cellMap[beg->second]->UpdateCell(); }
-		catch (...) {}	// May throw when closing program. Irrelevant except that we don't want the program to crash on exit.
-		beg++;
+	auto notificationSet = std::set<CELL_POSITION>{ };
+	{
+		auto lk = lock_guard<mutex>{ lkSubMap };		// Lock only to get local copy of notification set
+		auto it = subscriptionMap.find(subject);
+		if (it == subscriptionMap.end()) { return; }
+		notificationSet = it->second;					// Get local copy of notification set so that lock can be released before updating cells, which will require it's own lock downstream
 	}
+	for (auto observer: notificationSet) { GetCell(observer)->UpdateCell(); }
 }
 
 // Move a cell to a new location, updating its key as well to reflect the change.
@@ -90,28 +106,27 @@ bool CELL::MoveCell(CELL_POSITION newPosition) {
 }
 
 // Subscribe to notification of changes in target CELL.
-void CELL::SubscribeToCell(CELL_POSITION subject) const { subscriptionMap.insert({ subject, position }); }
+void CELL::SubscribeToCell(CELL_POSITION subject) const { 
+	auto lk = lock_guard<mutex>{ lkSubMap };
+	auto& observerSet = subscriptionMap[subject]; 
+	observerSet.insert(position);
+}
 
-void CELL::UnsubscribeFromCell(CELL_POSITION subject) const {
-	if (subscriptionMap.size() == 0) { return; }
-	try {
-		auto beg = subscriptionMap.lower_bound(subject);
-		auto end = subscriptionMap.upper_bound(subject);
+// Use static overload below
+void CELL::UnsubscribeFromCell(CELL_POSITION subject) const { UnsubscribeFromCell(subject, position); }
 
-		// Iterate through all elements with subject as key.
-		// Only erase the one where this cell is the observer.
-		while (beg != end) {
-			if (beg->second == position) { subscriptionMap.erase(beg); break; }
-			else { beg++; }
-		}
-	}
-	// I don't know why, but sometimes upon application exit, the container invariants are broken
-	// The container size != 0, but every entry comes up as "Unable to read memory" in debugger
-	// An exception is thrown trying to access this invalid memory
-	// Upon program exit, a failed unsubscription is meaningless, though quite unexpected
-	// The catch block should handle the error so that the program exits gracefully and any other exit proceedures run as normal
-	// Still, it seems to be throwing in a way that doesn't get caught here, so maybe an underlying function is declared noexcept?
-	catch (...) { }
+// Remove observer link
+void CELL::UnsubscribeFromCell(CELL_POSITION subject, CELL_POSITION observer) {
+	auto lk = lock_guard<mutex>{ lkSubMap };
+	auto itSubject = subscriptionMap.find(subject);
+	if (itSubject == subscriptionMap.end()) { return; }
+	(*itSubject).second.erase(observer);
+}
+
+std::shared_ptr<CELL> CELL::GetCell(CELL::CELL_POSITION pos) {
+	auto lk = lock_guard<mutex>{ lkCellMap };
+	auto it = cellMap.find(pos);
+	return it != cellMap.end() ? it->second : nullptr;
 }
 
 void CELL::UpdateCell() { table->UpdateCell(position); }		// Call update cell on GUI base pointer.
@@ -224,7 +239,7 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& i
 	else if (inputText[0] == '&') { /*Convert reference*/ 
 		auto pos = ReferenceStringToCellPosition(inputText);
 		SubscribeToCell(pos);
-		if (cellMap.find(pos) == cellMap.end()) { error = true; }		// Dangling reference: set error flag. Still need to construct reference argument for future use.
+		if (!CELL::GetCell(pos)) { error = true; }		// Dangling reference: set error flag. Still need to construct reference argument for future use.
 		return make_shared<FUNCTION_CELL::REFERENCE_ARGUMENT>(*this, pos);
 	}
 	else if (isdigit(inputText[0]) || inputText[0] == '.' || inputText[0] == '-') { /*Convert to value*/
@@ -283,11 +298,11 @@ void FUNCTION_CELL::VALUE_ARGUMENT::UpdateArgument() {
 }
 
 // Reference arugment grabs value of reference and stores the result in the associated future.
-FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell, CELL_POSITION pos) : parentCell(&parentCell), referencePosition(pos) {
+FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell, CELL_POSITION pos) : referencePosition(pos), parentPosition(parentCell.position) {
 	auto p = promise<double>{};
 	val = p.get_future();
 	try { 
-		auto x = cellMap.at(pos)->DisplayOutput();		// 
+		auto x = GetCell(referencePosition)->DisplayOutput();		// 
 		p.set_value(stod(x));	// Stored value may need to be tracked separately from display value eventually
 	}
 	catch (...) { }		// Constructor should not throw. Create regardless and check elsewhere for dangling reference.
@@ -297,7 +312,7 @@ FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell,
 void FUNCTION_CELL::REFERENCE_ARGUMENT::UpdateArgument() {
 	auto p = promise<double>{};
 	val = p.get_future();
-	p.set_value(stod(cellMap.at(referencePosition)->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
+	p.set_value(stod(GetCell(referencePosition)->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
 }
 
 /*////////////////////////////////////////////////////////////
