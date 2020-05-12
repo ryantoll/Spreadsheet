@@ -34,8 +34,8 @@ void WINDOWS_TABLE::DrawTableOutline() noexcept {
 }
 
 // Logic for Cell Windows to construct and display the appropriate CELL based upon user input string
-std::shared_ptr<CELL> WINDOWS_TABLE::CreateNewCell(CELL::CELL_POSITION pos, std::string rawInput) const noexcept {
-	if (pos == CELL::CELL_POSITION{ }) { return nullptr; }
+CELL::CELL_PROXY WINDOWS_TABLE::CreateNewCell(CELL::CELL_POSITION pos, std::string rawInput) const noexcept {
+	if (pos == CELL::CELL_POSITION{ }) { return CELL::CELL_PROXY{ nullptr }; }
 	return CELL::cell_factory.NewCell(pos, rawInput);	// Create new cell
 }
 
@@ -105,9 +105,9 @@ void WINDOWS_TABLE::Resize() noexcept {
 	auto row = static_cast<unsigned int>(ceil(static_cast<double>(rect.bottom) / height) - 2);		// Leave off label row and Entry box
 
 	// Place hard-cap on row & column number here.
-	if (col > 65535) { col = 65535; }
+	if (col > __MaxColumn) { col = __MaxColumn - 1; }
 	else if (col < 1) { col = 1; }
-	if (row > 65535) { row = 65535; }
+	if (row > __MaxRow) { row = __MaxRow - 1; }
 	else if (row < 1) { row = 1; }
 
 	// Add/remove rows and columns until it is exactly filled
@@ -123,7 +123,7 @@ void WINDOWS_TABLE::Resize() noexcept {
 
 // Update cell text.
 void WINDOWS_TABLE::UpdateCell(CELL::CELL_POSITION position) const noexcept {
-	auto cell = CELL::GetCell(position);
+	auto cell = CELL::GetCellProxy(position);
 	if (!cell) { return; }	// Return if no cell data exits
 	auto id = WINDOWS_TABLE::CELL_ID{ position };
 	auto out = string_to_wstring(cell->DisplayOutput());
@@ -152,8 +152,7 @@ void WINDOWS_TABLE::FocusCell(CELL::CELL_POSITION pos) noexcept {
 		SendMessage(id.GetWindowHandle(), WM_KEYDOWN, (WPARAM)VK_RETURN, NULL);	// Send Return-key message to self to move down to next cell
 	}
 	else {
-		//auto itCell = cellMap.find(id.GetCellPosition());
-		auto cell = CELL::GetCell(pos);
+		auto cell = CELL::GetCellProxy(pos);
 		if (cell) {
 			text = string_to_wstring(cell->DisplayRawContent());
 			SetWindowText(id.GetWindowHandle(), text.c_str());				// Show raw content rather than display value when cell is selected for editing.

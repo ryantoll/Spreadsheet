@@ -3,14 +3,15 @@
 #include "stdafx.h"
 #include "__Cell.h"
 
-constexpr const auto TABLE_COMMAND_READ_CELL = 1;
-
 class TABLE_BASE;
 inline auto table = std::unique_ptr<TABLE_BASE>{ };
+constexpr auto __MaxRow{ UINT16_MAX };
+constexpr auto __MaxColumn{ UINT16_MAX };
 
 // TABLE_BASE is an abstract base class that is specialized for the OS in question.
 // This decouples cell logic from OS dependence and maximizes portability.
-// Implementations of this class act as a "Bridge" pattern to map platform specific GUI operations to a generic interface.
+// Implementations of this class act as an "Adapter" pattern to map platform specific GUI operations to a generic interface.
+// Further abstractions may be considered in the future, such as cell windows, graphs, etc.
 // I think none of these throw, so I'll add noexcept specification.
 class TABLE_BASE {
 public:
@@ -35,7 +36,7 @@ public:
 	virtual void FocusRight1(CELL::CELL_POSITION) noexcept = 0;
 	virtual void FocusLeft1(CELL::CELL_POSITION) noexcept = 0;
 
-	virtual std::shared_ptr<CELL> CreateNewCell(CELL::CELL_POSITION, std::string) const noexcept = 0;
+	virtual CELL::CELL_PROXY CreateNewCell(CELL::CELL_POSITION, std::string) const noexcept = 0;
 	virtual void UpdateCell(CELL::CELL_POSITION) const noexcept = 0;
 	virtual void LockTargetCell(CELL::CELL_POSITION) noexcept = 0;
 	virtual void ReleaseTargetCell() noexcept = 0;
@@ -45,8 +46,8 @@ public:
 // Windows-specific code is segmented with a preprocessor command
 // Code for the appropriate system can be selected by this means
 #ifdef WIN32
+inline HWND hTable;
 inline WNDPROC EditHandler;
-inline HWND hParent, hTable, h_Text_Edit_Bar;
 LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK EntryBarWindowProc(HWND, UINT, WPARAM, LPARAM);
 
@@ -62,6 +63,7 @@ protected:
 	int height{ 25 };
 	int x0{ 0 };
 	int y0{ 25 };
+	HWND hParent, h_Text_Edit_Bar;
 	CELL::CELL_POSITION origin{ 0, 0 };		// Origin is the "off-the-begining" cell to the upper-left of the upper-left cell
 	CELL::CELL_POSITION posTargetCell{ };	// Tracks position of cell currently associated with upper edit box, may be blank
 	CELL::CELL_POSITION mostRecentCell{ };	// Tracks position of most recently selected cell for either target selection or new cell creation
@@ -88,7 +90,7 @@ public:
 	void FocusRight1(CELL::CELL_POSITION) noexcept override;
 	void FocusLeft1(CELL::CELL_POSITION) noexcept override;
 
-	std::shared_ptr<CELL> CreateNewCell(CELL::CELL_POSITION, std::string) const noexcept;
+	CELL::CELL_PROXY CreateNewCell(CELL::CELL_POSITION, std::string) const noexcept;
 	void UpdateCell(CELL::CELL_POSITION) const noexcept override;
 	void LockTargetCell(CELL::CELL_POSITION) noexcept override;
 	void ReleaseTargetCell() noexcept override;
@@ -107,7 +109,7 @@ class WINDOWS_TABLE::CELL_ID {
 	void Win_ID_From_Position() noexcept { windowID = (position.column << 16) + position.row; }
 	void Position_From_Win_ID() noexcept {
 		position.column = windowID >> 16;
-		position.row = (windowID - position.column * 65536);
+		position.row = (windowID - position.column * (UINT16_MAX + 1));
 	}
 public:
 	explicit CELL_ID(CELL::CELL_POSITION newPosition): position(newPosition) { Win_ID_From_Position(); }

@@ -21,14 +21,35 @@ public:
 		unsigned int column{ 0 };
 	};
 
+	// Any changes to a CELL should trigger a notification
+	// Utilizing a "Proxy" pattern ensures that a notification is sent whenever a change is made
+	// Users of CELL have only indirect access to CELLs since they should not be responsible for sending notifications.
+	class CELL_PROXY {
+		friend class CELL;
+		std::shared_ptr<CELL> cell;
+		auto operator*() const noexcept { return *cell; }
+	public:
+		CELL_PROXY() = default;
+		explicit CELL_PROXY(std::shared_ptr<CELL> target) : cell(target) { }
+		~CELL_PROXY() = default;
+
+		// Copy & move
+		CELL_PROXY& operator=(std::shared_ptr<CELL> target) noexcept { cell = target; if (cell) { cell->UpdateCell(); } return *this; }
+		CELL_PROXY(const CELL_PROXY& target) noexcept : cell(target.cell) { cell = target.cell; if (cell) { cell->UpdateCell(); } }
+		CELL_PROXY& operator=(std::shared_ptr<CELL>&& target) noexcept { cell = target; if (cell) { cell->UpdateCell(); } return *this; }
+		CELL_PROXY(const CELL_PROXY&& target) noexcept : cell(target.cell) { cell = target.cell; if (cell) { cell->UpdateCell(); } }
+
+		auto operator->() const noexcept { return cell; }
+		explicit operator bool() const noexcept { return bool{ cell }; }
+	};
+
+private:
 	// Internal "Singleton" factory, which has implicit access to private and protected CELL members.
 	// NewCell() member function should be fixed for consistency with existing cell types.
 	// Factory should be open to extention to support new cell types, defaulting to NewCell().
-private:
 	class CELL_FACTORY {
 	public:
-		//CELL_FACTORY();
-		static std::shared_ptr<CELL> NewCell(CELL_POSITION, const std::string&);
+		static CELL_PROXY NewCell(CELL_POSITION, const std::string&);
 		static void NotifyAll(CELL_POSITION);
 	};
 
@@ -45,15 +66,18 @@ private:
 	static std::mutex lkSubMap, lkCellMap;
 public:
 	static CELL_FACTORY cell_factory;
-	static std::shared_ptr<CELL> GetCell(CELL::CELL_POSITION);
+	static CELL_PROXY GetCellProxy(CELL::CELL_POSITION);
 private:
+	CELL(CELL_PROXY cell) { *this = *cell; CELL_FACTORY::NotifyAll(position); }		// Create cell from cell proxy and notify of change
+
 	std::string rawContent;
+	static std::shared_ptr<CELL> GetCell(CELL::CELL_POSITION);
 protected:
+	CELL() {}
 	std::string displayValue;
 	bool error{ false };
 	CELL_POSITION position;
 
-	CELL() {}
 	void SubscribeToCell(CELL_POSITION subject) const;
 	void UnsubscribeFromCell(CELL_POSITION) const;
 	static void UnsubscribeFromCell(CELL_POSITION, CELL_POSITION);
@@ -71,6 +95,8 @@ public:
 	virtual void UpdateCell();		// Invoked whenever a cell needs to update it's output.
 	CELL_POSITION GetPosition() { return position; }
 };
+
+//inline std::unordered_map<CELL::CELL_POSITION, std::string> stringMap;
 
 inline bool operator< (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION& rhs) {
 	if (lhs.column < rhs.column) { return true; }
@@ -100,9 +126,9 @@ class REFERENCE_CELL : public CELL {
 public:
 	virtual ~REFERENCE_CELL() { UnsubscribeFromCell(referencePosition); }
 	std::string DisplayOutput() const override {
-		auto out = std::string{};
-		auto cell = GetCell(referencePosition);
-		if (!cell || cell->GetPosition() == position) { out = "!REF!"; }		// Dangling reference & reference to self both cause a reference error.
+		auto out = std::string{ };
+		auto cell = GetCellProxy(referencePosition);
+		if (!cell || cell->GetPosition() == position) { out = "!REF!"; }	// Dangling reference & reference to self both cause a reference error.
 		else { out = cell->DisplayOutput(); }
 		return error ? "!ERROR!" : out;
 	}
