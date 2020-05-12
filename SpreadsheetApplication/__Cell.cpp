@@ -27,7 +27,7 @@ mutex CELL::lkSubMap{ }, CELL::lkCellMap{ };
 // Part of an alternative function mapping scheme
 //map<wstring, shared_ptr<FUNCTION_CELL::FUNCTION>> functionNameMap{ {wstring(L"SUM"), shared_ptr<FUNCTION_CELL::SUM>()}, {wstring(L"AVERAGE"), shared_ptr<FUNCTION_CELL::AVERAGE>()} };
 
-shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const string& contents) {
+CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const string& contents) {
 	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
 	// but also prevents accidental errors in failing to specify a location.
 	// R == 0 || C == 0 almost certainly indicates a failure to specify one or both arguments.
@@ -37,13 +37,11 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const strin
 	// Notify any observing cells about the change *AFTER* the change has occurred.
 	// (Note that control flow immediately goes to any updating cells.)
 	auto oldCell = GetCell(position);
-	if (contents == "" && oldCell) { if (oldCell) { cellMap.erase(oldCell->position); NotifyAll(position); } return nullptr; }
+	if (contents == "") { if (oldCell) { cellMap.erase(oldCell->position); NotifyAll(position); } return CELL::CELL_PROXY{ nullptr }; }
 
 	// Avoid re-creating identical CELLs.
 	// If it already exists and is built from the same raw string, just return a pointer to the stored CELL.
-	if (oldCell && contents == oldCell->rawContent) { table->UpdateCell(position); return oldCell; }
-
-
+	if (oldCell && contents == oldCell->rawContent) { table->UpdateCell(position); return CELL::CELL_PROXY{ oldCell }; }
 
 	auto cell = shared_ptr<CELL>();
 
@@ -52,17 +50,17 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const strin
 	case L'\'': { cell = make_shared<TEXT_CELL>(); } break;			// Enforce textual interpretation for format: '__
 	case L'&': { cell = make_shared<REFERENCE_CELL>(); } break;		// Takes input in the form of: &R__C__ or &C__R__
 	case '=': { cell = make_shared<FUNCTION_CELL>(); } break;		// Partial implementation available
-	case L'-':
-	case L'.':
-	case L'1':
-	case L'2':
-	case L'3':
-	case L'4':
-	case L'5':
-	case L'6':
-	case L'7':
-	case L'8':
-	case L'9':
+	case L'-': [[fallthrough]];
+	case L'.': [[fallthrough]];
+	case L'1': [[fallthrough]];
+	case L'2': [[fallthrough]];
+	case L'3': [[fallthrough]];
+	case L'4': [[fallthrough]];
+	case L'5': [[fallthrough]];
+	case L'6': [[fallthrough]];
+	case L'7': [[fallthrough]];
+	case L'8': [[fallthrough]];
+	case L'9': [[fallthrough]];
 	case L'0': { cell = make_shared< NUMERICAL_CELL>(); } break;	// Any cell beginning with a number or decimal is a number.
 	default: { cell = make_shared<TEXT_CELL>(); } break;			// By default, all cells are text cells unless otherwise determined.
 	}
@@ -80,7 +78,7 @@ shared_ptr<CELL> CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const strin
 	NotifyAll(position);					// Notify any cells that may be observing this position.
 
 	table->UpdateCell(position);			// Notify GUI to update cell value.
-	return GetCell(position);				// Return stored cell so that failed numerical cells return the stored fallback text cell rather than the original failed numerical cell.
+	return GetCellProxy(position);			// Return stored cell so that failed numerical cells return the stored fallback text cell rather than the original failed numerical cell.
 }
 
 // Notifies observing CELLs of change in underlying data.
@@ -129,7 +127,12 @@ std::shared_ptr<CELL> CELL::GetCell(CELL::CELL_POSITION pos) {
 	return it != cellMap.end() ? it->second : nullptr;
 }
 
-void CELL::UpdateCell() { table->UpdateCell(position); }		// Call update cell on GUI base pointer.
+CELL::CELL_PROXY CELL::GetCellProxy(CELL::CELL_POSITION pos) { return CELL_PROXY{ GetCell(pos) }; }
+
+void CELL::UpdateCell() { 
+	table->UpdateCell(position); 		// Call update cell on GUI base pointer.
+	CELL_FACTORY::NotifyAll(position);	// Cascade notification
+}
 
 void TEXT_CELL::InitializeCell() {
 	CELL::InitializeCell();
@@ -169,7 +172,7 @@ void REFERENCE_CELL::InitializeCell() {
 // Manually check for alpha characters since std::stod() is more forgiving than is appropriate for this situation.
 void NUMERICAL_CELL::InitializeCell() {
 	try { 
-		for (auto c : rawReader()) { if (isalpha(c)) { throw invalid_argument("Error parsing input text. \nText could not be interpreted as a number"); } }
+		for (auto c : rawReader()) { if (!isdigit(c) && c != '.' && c != '-') { throw invalid_argument("Error parsing input text. \nText could not be interpreted as a number"); } }
 		storedValue = stod(rawReader());
 	}
 	catch (...) { CELL::cell_factory.NewCell(position, "'" + rawReader()); }
@@ -239,7 +242,7 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& i
 	else if (inputText[0] == '&') { /*Convert reference*/ 
 		auto pos = ReferenceStringToCellPosition(inputText);
 		SubscribeToCell(pos);
-		if (!CELL::GetCell(pos)) { error = true; }		// Dangling reference: set error flag. Still need to construct reference argument for future use.
+		if (!CELL::GetCellProxy(pos)) { error = true; }		// Dangling reference: set error flag. Still need to construct reference argument for future use.
 		return make_shared<FUNCTION_CELL::REFERENCE_ARGUMENT>(*this, pos);
 	}
 	else if (isdigit(inputText[0]) || inputText[0] == '.' || inputText[0] == '-') { /*Convert to value*/
@@ -264,7 +267,8 @@ void FUNCTION_CELL::UpdateCell() {
 	displayValue = "";
 	error = false;		// Reset error flag in case there was a prior error
 	func.UpdateArgument();
-	storedValue = func.val.get();
+	try { storedValue = func.val.get(); }
+	catch (...) { error = true; }
 	CELL::UpdateCell();
 }
 
@@ -274,7 +278,8 @@ void FUNCTION_CELL::FUNCTION::Function() {
 	val = p.get_future();
 	if (Arguments.size() == 0) { error = true; return; }
 	auto x = *Arguments.begin();
-	p.set_value(x->val.get());
+	try { p.set_value(x->val.get()); }
+	catch (...) { error = true; return; }
 }
 
 // Update FUNCTION by first updating all arguments, then calling the function again.
@@ -297,22 +302,22 @@ void FUNCTION_CELL::VALUE_ARGUMENT::UpdateArgument() {
 	p.set_value(storedArgument);
 }
 
-// Reference arugment grabs value of reference and stores the result in the associated future.
-FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell, CELL_POSITION pos) : referencePosition(pos), parentPosition(parentCell.position) {
-	auto p = promise<double>{};
-	val = p.get_future();
-	try { 
-		auto x = GetCell(referencePosition)->DisplayOutput();		// 
-		p.set_value(stod(x));	// Stored value may need to be tracked separately from display value eventually
-	}
-	catch (...) { }		// Constructor should not throw. Create regardless and check elsewhere for dangling reference.
-}
+// Reference arugment stores positions of target and parent cells and then updates it's argument.
+FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell, CELL_POSITION pos) 
+	: referencePosition(pos), parentPosition(parentCell.position) {	UpdateArgument(); }
 
-// Ditto for update
+// Look up referenced value and store in the associated future.
+// Store an exception if there's a dangling or circular reference.
 void FUNCTION_CELL::REFERENCE_ARGUMENT::UpdateArgument() {
 	auto p = promise<double>{};
 	val = p.get_future();
-	p.set_value(stod(GetCell(referencePosition)->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
+	auto refCell = GetCellProxy(referencePosition);
+	std::exception_ptr error;
+	try {
+		if (!refCell || refCell->GetPosition() == parentPosition) { throw invalid_argument{ "Reference Error" }; }	// Check that value exists and is not circular reference
+		p.set_value(stod(refCell->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
+	}
+	catch (...) { p.set_exception(error._Current_exception()); }
 }
 
 /*////////////////////////////////////////////////////////////
