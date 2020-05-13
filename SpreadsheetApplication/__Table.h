@@ -57,8 +57,8 @@ public:
 	class CELL_ID;
 	class CELL_WINDOW;
 protected:
-	int numColumns{ 0 };
-	int numRows{ 0 };
+	unsigned int numColumns{ 0 };
+	unsigned int numRows{ 0 };
 	int width{ 75 };
 	int height{ 25 };
 	int x0{ 0 };
@@ -124,13 +124,15 @@ public:
 	auto GetWindowID() const noexcept { return windowID; }
 	auto GetRow() const noexcept { return position.row; }
 	auto GetColumn() const noexcept { return position.column; }
-	auto GetCellPosition() const noexcept { return position; }
-	HWND GetWindowHandle() const noexcept;	// Defined in .cpp file to have access to the parent table handle
 
 	auto& IncrementRow() noexcept { position.row++; Win_ID_From_Position(); return *this; }
 	auto& DecrementRow() noexcept { position.row--; Win_ID_From_Position(); return *this; }
 	auto& IncrementColumn() noexcept { position.column++; Win_ID_From_Position(); return *this; }
 	auto& DecrementColumn() noexcept { position.column--; Win_ID_From_Position(); return *this; }
+
+	operator CELL::CELL_POSITION() const noexcept { return position; }				// Allow for implicit conversion to CELL_POSITION
+	operator HWND() const noexcept { return GetDlgItem(hTable, windowID); }			// Allow for implicit conversion to HWND
+	operator HMENU() const noexcept { return reinterpret_cast<HMENU>(windowID); }	// Allow for implicit conversion to HMENU
 };
 
 #endif // WIN32

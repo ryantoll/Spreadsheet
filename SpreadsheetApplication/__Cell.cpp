@@ -276,9 +276,7 @@ void FUNCTION_CELL::UpdateCell() {
 void FUNCTION_CELL::FUNCTION::Function() {
 	auto p = promise<double>{ };
 	val = p.get_future();
-	if (Arguments.size() == 0) { error = true; return; }
-	auto x = *Arguments.begin();
-	try { p.set_value(x->val.get()); }
+	try { auto x = *Arguments.begin();  p.set_value(x->val.get()); }
 	catch (...) { error = true; return; }
 }
 

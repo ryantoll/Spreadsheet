@@ -30,7 +30,7 @@ void WINDOWS_TABLE::DrawTableOutline() noexcept {
 
 	Resize();		// Resize command will fill out the space with cell windows
 	auto startingCell = WINDOWS_TABLE::CELL_ID{ CELL::CELL_POSITION{ 1, 1 } };
-	SetFocus(startingCell.GetWindowHandle());	// Pick an arbitrary starting cell to avoid error where a cell is created with no position by clicking straight into upper entry bar.
+	SetFocus(startingCell);	// Pick an arbitrary starting cell to avoid error where a cell is created with no position by clicking straight into upper entry bar.
 }
 
 // Logic for Cell Windows to construct and display the appropriate CELL based upon user input string
@@ -50,13 +50,13 @@ void WINDOWS_TABLE::AddRow() noexcept {
 
 	// Create label for row
 	auto label = wstring{ L"R" } + to_wstring(numRows);
-	auto h = CreateWindow(TEXT("Static"), label.c_str(), WS_CHILD | WS_BORDER | WS_VISIBLE, x0, y0 + (numRows)* height, width, height, hTable, reinterpret_cast<HMENU>(cell_ID.GetWindowID()), hInst, NULL);
+	auto h = CreateWindow(TEXT("Static"), label.c_str(), WS_CHILD | WS_BORDER | WS_VISIBLE, x0, y0 + (numRows)* height, width, height, hTable, cell_ID, hInst, NULL);
 
 	// Loop through creating cell windows, filling in display value if it exists
 	while (cell_ID.GetColumn() < numColumns) {
 		cell_ID.IncrementColumn();
-		h = CreateWindow(TEXT("edit"), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + cell_ID.GetColumn() * width, y0 + (numRows)* height, width, height, hTable, reinterpret_cast<HMENU>(cell_ID.GetWindowID()), hInst, NULL);
-		table->UpdateCell(cell_ID.GetCellPosition());			// Update cell display
+		h = CreateWindow(TEXT("edit"), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + cell_ID.GetColumn() * width, y0 + (numRows)* height, width, height, hTable, cell_ID, hInst, NULL);
+		table->UpdateCell(cell_ID);								// Update cell display
 		SetWindowLong(h, GWL_WNDPROC, (LONG)CellWindowProc);	// Associate with cell window procedure
 	}
 }
@@ -69,13 +69,13 @@ void WINDOWS_TABLE::AddColumn() noexcept {
 
 	// Create label for column
 	auto label = wstring{ L"C" } + to_wstring(numColumns);
-	auto h = CreateWindow(TEXT("Static"), label.c_str(), WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + numColumns * width, y0, width, height, hTable, reinterpret_cast<HMENU>(cell_ID.GetWindowID()), hInst, NULL);
+	auto h = CreateWindow(TEXT("Static"), label.c_str(), WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + numColumns * width, y0, width, height, hTable, cell_ID, hInst, NULL);
 
 	// Loop through creating cell windows, filling in display value if it exists
 	while (cell_ID.GetRow() < numRows) {
 		cell_ID.IncrementRow();
-		auto h = CreateWindow(TEXT("edit"), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + cell_ID.GetColumn() * width, y0 + cell_ID.GetRow() * height, width, height, hTable, reinterpret_cast<HMENU>(cell_ID.GetWindowID()), hInst, NULL);
-		table->UpdateCell(cell_ID.GetCellPosition());			// Update cell display
+		auto h = CreateWindow(TEXT("edit"), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + cell_ID.GetColumn() * width, y0 + cell_ID.GetRow() * height, width, height, hTable, cell_ID, hInst, NULL);
+		table->UpdateCell(cell_ID);								// Update cell display
 		SetWindowLong(h, GWL_WNDPROC, (LONG)CellWindowProc);	// Associate with cell window procedure
 	}
 }
@@ -83,16 +83,16 @@ void WINDOWS_TABLE::AddColumn() noexcept {
 // Remove bottom row of cells.
 void WINDOWS_TABLE::RemoveRow() noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ CELL::CELL_POSITION{ } };
-	auto h = id.SetRow(numRows).GetWindowHandle();
-	while (id.GetColumn() <= numColumns) { DestroyWindow(h); h = id.IncrementColumn().GetWindowHandle(); }	// Increment through row and destroy cells
+	auto h = HWND{ id.SetRow(numRows) };
+	while (id.GetColumn() <= numColumns) { DestroyWindow(h); h = id.IncrementColumn(); }	// Increment through row and destroy cells
 	numRows--;
 }
 
 // Remove right column of cells.
 void WINDOWS_TABLE::RemoveColumn() noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ CELL::CELL_POSITION{ } };
-	auto h = id.SetRow(numRows).GetWindowHandle();
-	while (id.GetRow() <= numRows) { DestroyWindow(h); h = id.IncrementRow().GetWindowHandle(); }	// Increment through column and destroy cells
+	auto h = HWND{ id.SetRow(numRows) };
+	while (id.GetRow() <= numRows) { DestroyWindow(h); h = id.IncrementRow(); }	// Increment through column and destroy cells
 	numColumns--;
 }
 
@@ -127,7 +127,7 @@ void WINDOWS_TABLE::UpdateCell(CELL::CELL_POSITION position) const noexcept {
 	if (!cell) { return; }	// Return if no cell data exits
 	auto id = WINDOWS_TABLE::CELL_ID{ position };
 	auto out = string_to_wstring(cell->DisplayOutput());
-	SetWindowText(id.GetWindowHandle(), out.c_str());
+	SetWindowText(id, out.c_str());
 }
 
 // Redraw table.
@@ -145,27 +145,27 @@ void WINDOWS_TABLE::FocusCell(CELL::CELL_POSITION pos) noexcept {
 	auto posCreateCell = CELL::CELL_POSITION{ };
 	auto text = wstring{ };
 	if (pos == posTargetCell) {
-		ReleaseTargetCell();													// Release focus when selecting straight to target to open it up for new target selection.
-		posCreateCell = pos;													// Create new cell at current position
-		text = Edit_Box_to_Wstring(h_Text_Edit_Bar);							// Text for cell creation comes from upper entry bar
-		mostRecentCell = CELL::CELL_POSITION{ };								// This should not be queued for creation nor for targetting until selected again
-		SendMessage(id.GetWindowHandle(), WM_KEYDOWN, (WPARAM)VK_RETURN, NULL);	// Send Return-key message to self to move down to next cell
+		ReleaseTargetCell();									// Release focus when selecting straight to target to open it up for new target selection.
+		posCreateCell = pos;									// Create new cell at current position
+		text = Edit_Box_to_Wstring(h_Text_Edit_Bar);			// Text for cell creation comes from upper entry bar
+		mostRecentCell = CELL::CELL_POSITION{ };				// This should not be queued for creation nor for targetting until selected again
+		SendMessage(id, WM_KEYDOWN, (WPARAM)VK_RETURN, NULL);	// Send Return-key message to self to move down to next cell
 	}
 	else {
 		auto cell = CELL::GetCellProxy(pos);
 		if (cell) {
 			text = string_to_wstring(cell->DisplayRawContent());
-			SetWindowText(id.GetWindowHandle(), text.c_str());				// Show raw content rather than display value when cell is selected for editing.
-			SendMessage(id.GetWindowHandle(), EM_SETSEL, 0, -1);			// Select all within cell.
-			SetWindowText(h_Text_Edit_Bar, text.c_str());					// Otherwise, display raw content in entry bar.
+			SetWindowText(id, text.c_str());					// Show raw content rather than display value when cell is selected for editing.
+			SendMessage(id, EM_SETSEL, 0, -1);					// Select all within cell.
+			SetWindowText(h_Text_Edit_Bar, text.c_str());		// Otherwise, display raw content in entry bar.
 		}
-		else { SetWindowText(h_Text_Edit_Bar, L""); }		// Clear upper entry bar if selecting an empty cell
-		posCreateCell = mostRecentCell;						// Create cell at prior location
+		else { SetWindowText(h_Text_Edit_Bar, L""); }			// Clear upper entry bar if selecting an empty cell
+		posCreateCell = mostRecentCell;							// Create cell at prior location
 		id = WINDOWS_TABLE::CELL_ID{ posCreateCell };
-		text = Edit_Box_to_Wstring(id.GetWindowHandle());	// Use text stored in prior cell
-		mostRecentCell = pos;								// This is now the most recent cell
+		text = Edit_Box_to_Wstring(id);							// Use text stored in prior cell
+		mostRecentCell = pos;									// This is now the most recent cell
 	}
-	CreateNewCell(posCreateCell, wstring_to_string(text));	// Create new cell
+	CreateNewCell(posCreateCell, wstring_to_string(text));		// Create new cell
 }
 
 void WINDOWS_TABLE::UnfocusCell(CELL::CELL_POSITION pos) noexcept { }
@@ -174,7 +174,7 @@ void WINDOWS_TABLE::FocusEntryBox() noexcept {
 	if (posTargetCell != CELL::CELL_POSITION{ }) { return; }	// If there is a target, don't reset text
 	LockTargetCell(mostRecentCell);								// Lock onto target cell
 	auto id = WINDOWS_TABLE::CELL_ID{ mostRecentCell };
-	auto text = Edit_Box_to_Wstring(id.GetWindowHandle());
+	auto text = Edit_Box_to_Wstring(id);
 	SetWindowText(h_Text_Edit_Bar, text.c_str());				// Set text to that of target cell to continue editing
 }
 
@@ -192,32 +192,26 @@ void WINDOWS_TABLE::UnfocusEntryBox(CELL::CELL_POSITION pos) noexcept {
 void WINDOWS_TABLE::FocusUp1(CELL::CELL_POSITION pos) noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ pos };
 	if (id.GetRow() == 1) { return; }			// Stop at bottom edge
-	id.DecrementRow().GetWindowID();			// Decrement cell ID
-	SetFocus(id.GetWindowHandle());				// Set focus to new cell
+	SetFocus(id.DecrementRow());				// Decrement row and set focus to new cell
 }
 
 void WINDOWS_TABLE::FocusDown1(CELL::CELL_POSITION pos) noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ pos };
 	if (id.GetRow() >= table->GetNumRows()) { /*winTable->origin.column++; winTable->Resize();*/ return; }		// Stop at top edge
-	id.IncrementRow().GetWindowID();	// Increment cell ID
-	SetFocus(id.GetWindowHandle());		// Set focus to new cell
+	SetFocus(id.IncrementRow());	// Increment row and set focus to new cell
 }
 
 void WINDOWS_TABLE::FocusRight1(CELL::CELL_POSITION pos) noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ pos };
 	if (id.GetColumn() >= table->GetNumColumns()) { /*winTable->origin.column++; winTable->Resize();*/ return; }	// Stop at right edge
-	id.IncrementColumn().GetWindowID();			// Increment cell ID
-	SetFocus(id.GetWindowHandle());				// Set focus to new cell
+	SetFocus(id.IncrementColumn());				// Increment column and set focus to new cell
 }
 
 void WINDOWS_TABLE::FocusLeft1(CELL::CELL_POSITION pos) noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ pos };
 	if (id.GetColumn() == 1) { return; }		// Stop at left edge
-	id.DecrementColumn().GetWindowID();			// Decrement cell ID
-	SetFocus(id.GetWindowHandle());				// Set focus to new cell
+	SetFocus(id.DecrementColumn());				// Decrement column and set focus to new cell
 }
-
-HWND WINDOWS_TABLE::CELL_ID::GetWindowHandle() const noexcept { return GetDlgItem(hTable, windowID); }
 
 void WINDOWS_TABLE::LockTargetCell(CELL::CELL_POSITION pos) noexcept { if (posTargetCell != CELL::CELL_POSITION{ }) { return; } posTargetCell = pos; }
 

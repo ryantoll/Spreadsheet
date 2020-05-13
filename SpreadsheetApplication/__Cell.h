@@ -63,6 +63,7 @@ private:
 	// CELL_POSITION defines it's own operator< and operator== for use in map sorting.
 	// The choice of column sorting preempting row sorting is arbitrary. Either way is fine so long as it is consistent.
 	static std::map<CELL::CELL_POSITION, std::shared_ptr<CELL>> cellMap;
+	// inline std::unordered_map<CELL::CELL_POSITION, std::string> cellMap;	// Consider hash map as an alternative
 	static std::mutex lkSubMap, lkCellMap;
 public:
 	static CELL_FACTORY cell_factory;
@@ -95,8 +96,6 @@ public:
 	virtual void UpdateCell();		// Invoked whenever a cell needs to update it's output.
 	CELL_POSITION GetPosition() { return position; }
 };
-
-//inline std::unordered_map<CELL::CELL_POSITION, std::string> stringMap;
 
 inline bool operator< (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION& rhs) {
 	if (lhs.column < rhs.column) { return true; }
@@ -189,7 +188,6 @@ public:
 protected:
 	FUNCTION func;
 	
-	//void UnsubscribeFromCell(CELL::CELL_POSITION pos) const override { CELL::UnsubscribeFromCell(pos); }
 	std::shared_ptr<FUNCTION_CELL::ARGUMENT> ParseFunctionString(std::string&);
 public:
 	/*////////////////////////////////////////////////////////////
