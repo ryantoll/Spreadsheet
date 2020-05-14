@@ -21,8 +21,10 @@ using namespace RYANS_UTILITIES;
 // This is due to object lifetimes. Deconstruction of CELLs in cellMap cues unsubscription of CELL observation.
 // The CELL then searches through the deconstructed subscriptionMap to remove itself.
 // This causes an internal noexcept function to throw since it is traversing a tree that is no longer in a valid state.
-std::map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>> CELL::subscriptionMap{ };	// <Subject, Observers>
-std::map<CELL::CELL_POSITION, std::shared_ptr<CELL>> CELL::cellMap{ };					// Stores all CELLs
+std::unordered_map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>, CELL::CELL_HASH> CELL::subscriptionMap{ };	// <Subject, Observers>
+std::unordered_map<CELL::CELL_POSITION, shared_ptr<CELL>, CELL::CELL_HASH> CELL::cellMap{ };						// Stores all CELLs
+// std::map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>> CELL::subscriptionMap{ };		// <Subject, Observers>
+// std::map<CELL::CELL_POSITION, shared_ptr<CELL>> CELL::cellMap{ };							// Stores all CELLs
 mutex CELL::lkSubMap{ }, CELL::lkCellMap{ };
 
 // Part of an alternative function mapping scheme
@@ -293,8 +295,13 @@ FUNCTION_CELL::FUNCTION::FUNCTION(vector<shared_ptr<ARGUMENT>>&& args) : Argumen
 	catch (...) { error = true; return; }
 }
 
-// Update FUNCTION by first updating all arguments, then calling the function again.
-void FUNCTION_CELL::FUNCTION::UpdateArgument() noexcept { for (auto arg : Arguments) { arg->UpdateArgument(); } }
+// Update FUNCTION by first updating all arguments, then setting the future again.
+void FUNCTION_CELL::FUNCTION::UpdateArgument() noexcept { 
+	for (auto arg : Arguments) { arg->UpdateArgument(); } 
+	if (Arguments.size() == 0) { error = true; return; }
+	try { SetValue((*Arguments.begin())->Get()); }
+	catch (...) { error = true; return; }
+}
 
 // A single value merely needs to set the associated future with the given value.
 FUNCTION_CELL::VALUE_ARGUMENT::VALUE_ARGUMENT(double arg): storedArgument(arg) { SetValue(arg); }

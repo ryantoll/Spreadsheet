@@ -21,6 +21,16 @@ public:
 		unsigned int column{ 0 };
 	};
 
+	struct CELL_HASH {
+		std::size_t operator() (CELL::CELL_POSITION const& pos) const noexcept {
+			auto x = unsigned long long{ 0 };
+			x = x | pos.column;
+			x = x << 32;
+			x = x | pos.row;
+			return x;
+		}
+	};
+
 	// Any changes to a CELL should trigger a notification
 	// Utilizing a "Proxy" pattern ensures that a notification is sent whenever a change is made
 	// Users of CELL have only indirect access to CELLs since they should not be responsible for sending notifications.
@@ -56,14 +66,15 @@ private:
 	// An "Observer" pattern is used to notify relevant cells when changes occur.
 	// Changes may cascade, so notifications need to handle that effectively.
 	// Stores a set of observers for each subject.
-	static std::map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>> subscriptionMap;		// <Subject, (set of) Observers>
+	//static std::map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>> subscriptionMap;		// <Subject, (set of) Observers>
+	static std::unordered_map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>, CELL_HASH> subscriptionMap;
 
 	// Map holds all non-null cells.
 	// The use of an associative container rather than a sequential container obviates the need for filler cells in empty positions.
 	// CELL_POSITION defines it's own operator< and operator== for use in map sorting.
 	// The choice of column sorting preempting row sorting is arbitrary. Either way is fine so long as it is consistent.
-	static std::map<CELL::CELL_POSITION, std::shared_ptr<CELL>> cellMap;
-	// inline std::unordered_map<CELL::CELL_POSITION, std::string> cellMap;	// Consider hash map as an alternative
+	// static std::map<CELL::CELL_POSITION, std::shared_ptr<CELL>> cellMap;
+	static std::unordered_map<CELL::CELL_POSITION, std::shared_ptr<CELL>, CELL_HASH> cellMap;	// Consider hash map as an alternative
 	static std::mutex lkSubMap, lkCellMap;
 public:
 	static CELL_FACTORY cell_factory;
