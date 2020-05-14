@@ -2,7 +2,6 @@
 #include "Utilities.h"
 #include "__Cell.h"
 #include "__Table.h"
-#include <stdexcept>
 
 using std::string;
 using std::vector;
@@ -10,7 +9,9 @@ using std::shared_ptr;
 using std::promise;
 using std::invalid_argument;
 using std::make_shared;
+using std::make_unique;
 using std::lock_guard;
+using std::future;
 using std::mutex;
 using namespace RYANS_UTILITIES;
 
@@ -180,14 +181,14 @@ void NUMERICAL_CELL::InitializeCell() {
 
 // I'm not sure how best to implement this mapping of text to function objects.
 // Each one must get a newly created object, lest they share the same arguments.
-shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(const string& inputText) {	
-	if (inputText == "SUM") { return make_shared<FUNCTION_CELL::SUM>(); }
-	else if (inputText == "AVERAGE") { return make_shared<FUNCTION_CELL::AVERAGE>(); }
-	else if (inputText == "PRODUCT") { return make_shared<FUNCTION_CELL::PRODUCT>(); }
-	else if (inputText == "INVERSE") { return make_shared<FUNCTION_CELL::INVERSE>(); }
-	else if (inputText == "RECIPROCAL") { return make_shared<FUNCTION_CELL::RECIPROCAL>(); }
+shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(const string& inputText, vector<shared_ptr<FUNCTION_CELL::ARGUMENT>>&& args) {	
+	if (inputText == "SUM") { return make_shared<FUNCTION_CELL::SUM>( std::move(args) ); }
+	else if (inputText == "AVERAGE") { return make_shared<FUNCTION_CELL::AVERAGE>( std::move(args) ); }
+	else if (inputText == "PRODUCT") { return make_shared<FUNCTION_CELL::PRODUCT>( std::move(args) ); }
+	else if (inputText == "INVERSE") { return make_shared<FUNCTION_CELL::INVERSE> (std::move(args) ); }
+	else if (inputText == "RECIPROCAL") { return make_shared<FUNCTION_CELL::RECIPROCAL>( std::move(args) ); }
 	else if (inputText == "PI") { return make_shared<FUNCTION_CELL::PI>(); }
-	else { return make_shared<FUNCTION_CELL::FUNCTION>(); }
+	else { return make_shared<FUNCTION_CELL::FUNCTION>( std::move(args) ); }
 }
 
 // As I write this, I realize how complicated this parsing can become.
@@ -208,11 +209,6 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& i
 		while (isalpha(inputText[n])) { ++n; }
 		auto funcName = inputText.substr(0, n);
 		inputText.erase(0, n);
-
-		// Create approprate function cell from function name
-		// Call new parsing operation to fill out function arguments
-		auto func = MatchNameToFunction(funcName);
-		func->Arguments.clear();
 		if (!ClearEnclosingChars(L'(', L')', inputText)) { throw invalid_argument("Error parsing input text. \nParentheses mismatch."); }	// Clear enclosing brackets of funciton call
 
 		// Segment text within parentheses into segments deliniated by commas
@@ -235,8 +231,12 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& i
 			inputText.erase(0, n + 1);
 		} while (n != string::npos);
 
-		for (auto arg : argSegments) { func->Arguments.push_back(ParseFunctionString(arg)); }	// For each segment, build it into an argument recursively
-		func->Function();																		// Associate future with result of function
+		auto vArgs = vector<shared_ptr<ARGUMENT>> { };
+		for (auto arg : argSegments) { vArgs.push_back(ParseFunctionString(arg)); }	// For each segment, build it into an argument recursively
+		
+		// Create approprate function cell from function name
+		// Call new parsing operation to fill out function arguments
+		auto func = MatchNameToFunction(funcName, std::move(vArgs));
 		return func;
 	}
 	else if (inputText[0] == '&') { /*Convert reference*/ 
@@ -257,48 +257,50 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& i
 // Parse function text into actual functions.
 void FUNCTION_CELL::InitializeCell() {
 	auto inputText = rawReader().substr(1);
-	func.Arguments.push_back(ParseFunctionString(inputText));		// Recursively parse input string
-	func.Function();												// Associate future with result of function
-	storedValue = func.val.get();
+	auto vArgs = vector<shared_ptr<ARGUMENT>>{ };
+	vArgs.push_back(ParseFunctionString(inputText));	// Recursively parse input string
+	func = make_shared<FUNCTION>( std::move(vArgs) );
+	storedValue = func->Get();
 }
 
 // Recalculate function when an underlying reference argument is changed.
 void FUNCTION_CELL::UpdateCell() {
 	displayValue = "";
 	error = false;		// Reset error flag in case there was a prior error
-	func.UpdateArgument();
-	try { storedValue = func.val.get(); }
+	func->UpdateArgument();
+	try { storedValue = func->Get(); }
 	catch (...) { error = true; }
 	CELL::UpdateCell();
 }
 
-// By default, FUNCTION assumes a single argument and simply grab its value
-void FUNCTION_CELL::FUNCTION::Function() {
+// Set the value of the associated future.
+void FUNCTION_CELL::ARGUMENT::SetValue(double value) noexcept {
 	auto p = promise<double>{ };
 	val = p.get_future();
-	try { auto x = *Arguments.begin();  p.set_value(x->val.get()); }
+	p.set_value(value);
+}
+
+// Set an exception for the associated future.
+void FUNCTION_CELL::ARGUMENT::SetValue(std::exception_ptr error) noexcept {
+	auto p = promise<double>{};
+	val = p.get_future();
+	p.set_exception(error);
+}
+
+FUNCTION_CELL::FUNCTION::FUNCTION(vector<shared_ptr<ARGUMENT>>&& args) : Arguments{ std::move(args) } {
+	if (Arguments.size() == 0) { error = true; return; }
+	try { SetValue((*Arguments.begin())->Get()); }
 	catch (...) { error = true; return; }
 }
 
 // Update FUNCTION by first updating all arguments, then calling the function again.
-void FUNCTION_CELL::FUNCTION::UpdateArgument() {
-	for (auto arg : Arguments) { arg->UpdateArgument(); }
-	Function();
-}
+void FUNCTION_CELL::FUNCTION::UpdateArgument() noexcept { for (auto arg : Arguments) { arg->UpdateArgument(); } }
 
 // A single value merely needs to set the associated future with the given value.
-FUNCTION_CELL::VALUE_ARGUMENT::VALUE_ARGUMENT(double arg): storedArgument(arg) {
-	auto p = promise<double>{};
-	val = p.get_future();
-	p.set_value(arg);
-}
+FUNCTION_CELL::VALUE_ARGUMENT::VALUE_ARGUMENT(double arg): storedArgument(arg) { SetValue(arg); }
 
 // Ditto for updating the argument.
-void FUNCTION_CELL::VALUE_ARGUMENT::UpdateArgument() {
-	auto p = promise<double>{};
-	val = p.get_future();
-	p.set_value(storedArgument);
-}
+void FUNCTION_CELL::VALUE_ARGUMENT::UpdateArgument() noexcept  { SetValue(storedArgument); }
 
 // Reference arugment stores positions of target and parent cells and then updates it's argument.
 FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell, CELL_POSITION pos) 
@@ -306,60 +308,56 @@ FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell,
 
 // Look up referenced value and store in the associated future.
 // Store an exception if there's a dangling or circular reference.
-void FUNCTION_CELL::REFERENCE_ARGUMENT::UpdateArgument() {
-	auto p = promise<double>{};
-	val = p.get_future();
+void FUNCTION_CELL::REFERENCE_ARGUMENT::UpdateArgument() noexcept {
 	auto refCell = GetCellProxy(referencePosition);
-	std::exception_ptr error;
 	try {
 		if (!refCell || refCell->GetPosition() == parentPosition) { throw invalid_argument{ "Reference Error" }; }	// Check that value exists and is not circular reference
-		p.set_value(stod(refCell->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
+		SetValue(stod(refCell->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
 	}
-	catch (...) { p.set_exception(error._Current_exception()); }
+	catch (std::exception error) { SetValue(std::make_exception_ptr(error)); }
 }
 
 /*////////////////////////////////////////////////////////////
 // Procedures for supported FUNCTION_CELL::FUNCTIONs
 */////////////////////////////////////////////////////////////
 
-void FUNCTION_CELL::SUM::Function() {
+FUNCTION_CELL::SUM::SUM(vector<shared_ptr<ARGUMENT>>&& args) {
+	Arguments = std::move(args);
 	if (Arguments.size() == 0) { throw invalid_argument("Error parsing input text.\nNo arguments provided."); }
 	auto& input = Arguments;
-	val = async(std::launch::async | std::launch::deferred, [&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->val.get(); }  return sum; });
+	val = async(std::launch::async | std::launch::deferred,
+		[&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->Get(); }  return sum; });
 }
 
-void FUNCTION_CELL::AVERAGE::Function() {
+FUNCTION_CELL::AVERAGE::AVERAGE(vector<shared_ptr<ARGUMENT>>&& args) {
+	Arguments = std::move(args);
 	if (Arguments.size() == 0) { throw invalid_argument("Error parsing input text.\nNo arguments provided."); }
 	auto& input = Arguments;
-	val = async(std::launch::async | std::launch::deferred, [&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->val.get(); }  return sum / input.size(); });
+	val = async(std::launch::async | std::launch::deferred, 
+		[&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->Get(); }  return sum / input.size(); });
 }
 
-void FUNCTION_CELL::PRODUCT::Function() {
+FUNCTION_CELL::PRODUCT::PRODUCT(vector<shared_ptr<ARGUMENT>>&& args) {
+	Arguments = std::move(args);
 	if (Arguments.size() == 0) { throw invalid_argument("Error parsing input text.\nNo arguments provided."); }
 	double product{ 1 };
-	for (auto x : Arguments) { product *= (*x).val.get(); }
-	auto p = promise<double>{};
-	val = p.get_future();
-	p.set_value(product);
+	for (auto x : Arguments) { product *= (*x).Get(); }
+	SetValue(product);
 }
 
-void FUNCTION_CELL::INVERSE::Function() {
+FUNCTION_CELL::INVERSE::INVERSE(vector<shared_ptr<ARGUMENT>>&& args) {
+	Arguments = std::move(args);
 	if (Arguments.size() != 1) { throw invalid_argument("Error parsing input text.\nExactly one argument must be given."); }
-	auto p = promise<double>{};
-	val = p.get_future();
-	p.set_value((*Arguments.begin())->val.get() * (-1));
+	SetValue(((*Arguments.begin())->Get()) * (-1));
 }
 
-void FUNCTION_CELL::RECIPROCAL::Function() {
+FUNCTION_CELL::RECIPROCAL::RECIPROCAL(vector<shared_ptr<ARGUMENT>>&& args) {
+	Arguments = std::move(args);
 	if (Arguments.size() != 1) { throw invalid_argument("Error parsing input text.\nExactly one argument must be given."); }
-	auto p = promise<double>{};
-	val = p.get_future();
-	p.set_value(1 / (*Arguments.begin())->val.get());
+	SetValue(1 / (*Arguments.begin())->Get());
 }
 
-void FUNCTION_CELL::PI::Function() {
+FUNCTION_CELL::PI::PI() {
 	if (Arguments.size() != 0) { throw invalid_argument("Error parsing input text.\nFunction takes no arguments."); }
-	auto p = promise<double>{};
-	val = p.get_future();
-	p.set_value(3.14159);		// <== May consider other ways to call/represent this number.
+	SetValue(3.14159);	// <== May consider other ways to call/represent this number.
 }

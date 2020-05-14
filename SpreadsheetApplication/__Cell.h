@@ -160,45 +160,50 @@ public:
 	void UpdateCell() override;		// Need to add recalculate logic here for when reference cells update
 
 	struct ARGUMENT { 
+		virtual void UpdateArgument() noexcept { }	// Logic to update argument when dependent cells update. May be trivial.
+		double Get() { return val.get(); }
+	protected:
 		std::future<double> val;
-		virtual void UpdateArgument() { }				// Logic to update argument when dependent cells update. May be trivial.
+		void SetValue(double) noexcept;
+		void SetValue(std::exception_ptr) noexcept;
 	};
 
 	struct FUNCTION: public ARGUMENT {
+		FUNCTION() = default;
+		FUNCTION(std::vector<std::shared_ptr<ARGUMENT>>&&);
 		std::vector<std::shared_ptr<ARGUMENT>> Arguments;
 		//double (*funPTR) (vector<ARGUMENT>);			// Alternate to subclassing, just assign a function to this pointer at runtime.
-		virtual void Function();						// Each sub-class overrides this function to implement its own functionallity
-		void UpdateArgument() override;
+		void UpdateArgument() noexcept override;
 		bool error{ false };
 	};
 
 	struct VALUE_ARGUMENT : public ARGUMENT {
-		double storedArgument{ };
 		explicit VALUE_ARGUMENT(double);
-		void UpdateArgument() override;
+		double storedArgument{ };
+		void UpdateArgument() noexcept override;
 	};
 
 	struct REFERENCE_ARGUMENT : public ARGUMENT {
 		REFERENCE_ARGUMENT(FUNCTION_CELL&, CELL_POSITION);
 		~REFERENCE_ARGUMENT() { UnsubscribeFromCell(referencePosition, parentPosition); }
 		CELL_POSITION referencePosition, parentPosition;
-		void UpdateArgument() override;
+		void UpdateArgument() noexcept override;
 	};
 
 protected:
-	FUNCTION func;
+	std::shared_ptr<ARGUMENT> func;
 	
 	std::shared_ptr<FUNCTION_CELL::ARGUMENT> ParseFunctionString(std::string&);
 public:
 	/*////////////////////////////////////////////////////////////
 	// List of available operations overriding Function
 	*/////////////////////////////////////////////////////////////
-	struct SUM : public FUNCTION { void Function() override; };
-	struct AVERAGE : public FUNCTION { void Function() override; };
-	struct PRODUCT : public FUNCTION { void Function() override; };
-	struct INVERSE : public FUNCTION { void Function() override; };
-	struct RECIPROCAL : public FUNCTION { void Function() override; };
-	struct PI : public FUNCTION { void Function() override; };
+	struct SUM : public FUNCTION { SUM(std::vector<std::shared_ptr<ARGUMENT>>&& args); };
+	struct AVERAGE : public FUNCTION { AVERAGE(std::vector<std::shared_ptr<ARGUMENT>>&& args); };
+	struct PRODUCT : public FUNCTION { PRODUCT(std::vector<std::shared_ptr<ARGUMENT>>&& args); };
+	struct INVERSE : public FUNCTION { INVERSE(std::vector<std::shared_ptr<ARGUMENT>>&& args); };
+	struct RECIPROCAL : public FUNCTION { RECIPROCAL(std::vector<std::shared_ptr<ARGUMENT>>&& args); };
+	struct PI : public FUNCTION { PI(); };
 };
 
 #endif // !__CELL_CLASS
