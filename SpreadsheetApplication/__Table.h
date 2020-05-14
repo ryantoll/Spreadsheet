@@ -45,7 +45,7 @@ public:
 
 // Windows-specific code is segmented with a preprocessor command
 // Code for the appropriate system can be selected by this means
-#ifdef WIN32
+#ifdef _WINDOWS
 inline HWND hTable;
 inline WNDPROC EditHandler;
 LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
@@ -136,5 +136,40 @@ public:
 };
 
 #endif // WIN32
+
+// Alternative table implementaiton for a pure console interface.
+// This is provided to show platform portability while minimizing the need for learning a new platform.
+#ifdef _CONSOLE
+class CONSOLE_TABLE : public TABLE_BASE {
+public:
+	virtual void AddRow() noexcept { };
+	virtual void AddColumn() noexcept { };
+	virtual void RemoveRow() noexcept { };
+	virtual void RemoveColumn() noexcept { };
+	virtual unsigned int GetNumColumns() const noexcept { return 0; };
+	virtual unsigned int GetNumRows() const noexcept { return 0; };
+
+	virtual void DrawTableOutline() noexcept { };
+	virtual void Resize() noexcept { };
+	virtual void Redraw() const noexcept { };
+	virtual void FocusCell(CELL::CELL_POSITION) noexcept { };
+
+	virtual CELL::CELL_PROXY CreateNewCell(CELL::CELL_POSITION, std::string) const noexcept { return CELL::CELL_PROXY{ }; };
+	virtual void UpdateCell(CELL::CELL_POSITION) const noexcept { };
+	virtual CELL::CELL_POSITION TargetCellGet() const noexcept { return CELL::CELL_POSITION{ }; };
+protected:
+	// Unused functions
+	virtual void UnfocusCell(CELL::CELL_POSITION) noexcept { };
+	virtual void FocusEntryBox() noexcept { };
+	virtual void UnfocusEntryBox(CELL::CELL_POSITION) noexcept { };
+	virtual void FocusUp1(CELL::CELL_POSITION) noexcept { };
+	virtual void FocusDown1(CELL::CELL_POSITION) noexcept { };
+	virtual void FocusRight1(CELL::CELL_POSITION) noexcept { };
+	virtual void FocusLeft1(CELL::CELL_POSITION) noexcept { };
+	virtual void LockTargetCell(CELL::CELL_POSITION) noexcept { };
+	virtual void ReleaseTargetCell() noexcept { };
+};
+#endif // _CONSOLE
+
 
 #endif //!__TABLE_CLASS

@@ -68,6 +68,9 @@
     <ClCompile Include="__Table_Windows_OS.cpp">
       <Filter>Source Files\Table</Filter>
     </ClCompile>
+    <ClCompile Include="__Table_Console_Application.cpp">
+      <Filter>Source Files\Table</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SpreadsheetApplication.rc">

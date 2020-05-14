@@ -6,7 +6,7 @@
 namespace RYANS_UTILITIES {
 
 // Windows Utilities
-#ifdef WIN32
+#ifdef _WINDOWS
 	inline std::wstring string_to_wstring(const std::string& input_string) {
 		size_t n = input_string.size() + 1;
 		std::unique_ptr<wchar_t[]> output_C_string(new wchar_t[n]);		//Dynamically allocate new array to store conversion output.
@@ -38,7 +38,11 @@ namespace RYANS_UTILITIES {
 	}
 
 	inline void Append_String_to_Edit_Box(HWND h, const std::string& out) { Append_Wstring_to_Edit_Box(h, string_to_wstring(out)); }
-#endif // WIN32
+#endif // _WINDOWS
+
+#ifndef min					// Borrowed from Windows headers. Define here if undefined.
+#define min(a,b)            (((a) < (b)) ? (a) : (b))
+#endif
 
 	// Tool used for parsing text.
 	// Tests for enclosing chars and clears them out. Returns bool indicating success/failure.

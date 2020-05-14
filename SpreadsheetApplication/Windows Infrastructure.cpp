@@ -10,7 +10,7 @@
 #include "SpreadsheetApplication.h"
 #include "__Table.h"
 
-#ifdef WIN32
+#ifdef _WINDOWS
 
 // SpreadsheetApplication.cpp : Defines the entry point for the application.
 
@@ -129,4 +129,4 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	return TRUE;
 }
 
-#endif // WIN32
+#endif // _WINDOWS

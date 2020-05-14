@@ -1,15 +1,17 @@
 #include "stdafx.h"
+
+#ifdef _WINDOWS
 #include "Utilities.h"
 #include "__Table.h"
+#include <WinUser.h>
+#ifdef _WIN64
+// GWL_WNDPROC -> GWLP_WNDPROC
+#endif // _WIN64
 
 using std::wstring;
 using std::to_wstring;
 using std::vector;
 using namespace RYANS_UTILITIES;
-
-#ifdef WIN32
-
-#include <WinUser.h>
 
 const unsigned long id_Table_Background{ 1001 }, id_Text_Edit_Bar{ 1002 };
 
