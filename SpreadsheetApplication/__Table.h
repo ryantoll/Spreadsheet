@@ -142,32 +142,30 @@ public:
 #ifdef _CONSOLE
 class CONSOLE_TABLE : public TABLE_BASE {
 public:
-	virtual void AddRow() noexcept { };
-	virtual void AddColumn() noexcept { };
-	virtual void RemoveRow() noexcept { };
-	virtual void RemoveColumn() noexcept { };
-	virtual unsigned int GetNumColumns() const noexcept { return 0; };
-	virtual unsigned int GetNumRows() const noexcept { return 0; };
-
-	virtual void DrawTableOutline() noexcept { };
-	virtual void Resize() noexcept { };
-	virtual void Redraw() const noexcept { };
-	virtual void FocusCell(CELL::CELL_POSITION) noexcept { };
-
-	virtual CELL::CELL_PROXY CreateNewCell(CELL::CELL_POSITION, std::string) const noexcept { return CELL::CELL_PROXY{ }; };
-	virtual void UpdateCell(CELL::CELL_POSITION) const noexcept { };
-	virtual CELL::CELL_POSITION TargetCellGet() const noexcept { return CELL::CELL_POSITION{ }; };
+	void Resize() noexcept override;
+	void Redraw() const noexcept override;
+	void FocusEntryBox() noexcept override;
 protected:
 	// Unused functions
-	virtual void UnfocusCell(CELL::CELL_POSITION) noexcept { };
-	virtual void FocusEntryBox() noexcept { };
-	virtual void UnfocusEntryBox(CELL::CELL_POSITION) noexcept { };
-	virtual void FocusUp1(CELL::CELL_POSITION) noexcept { };
-	virtual void FocusDown1(CELL::CELL_POSITION) noexcept { };
-	virtual void FocusRight1(CELL::CELL_POSITION) noexcept { };
-	virtual void FocusLeft1(CELL::CELL_POSITION) noexcept { };
-	virtual void LockTargetCell(CELL::CELL_POSITION) noexcept { };
-	virtual void ReleaseTargetCell() noexcept { };
+	void AddRow() noexcept override { };
+	void AddColumn() noexcept override { };
+	void RemoveRow() noexcept override { };
+	void RemoveColumn() noexcept override { };
+	unsigned int GetNumColumns() const noexcept override { return 0; };
+	unsigned int GetNumRows() const noexcept override { return 0; };
+	void DrawTableOutline() noexcept override { };
+	void FocusCell(CELL::CELL_POSITION) noexcept override { };
+	void UnfocusCell(CELL::CELL_POSITION) noexcept override { };
+	void UnfocusEntryBox(CELL::CELL_POSITION) noexcept override { };
+	void FocusUp1(CELL::CELL_POSITION) noexcept override { };
+	void FocusDown1(CELL::CELL_POSITION) noexcept override { };
+	void FocusRight1(CELL::CELL_POSITION) noexcept override { };
+	void FocusLeft1(CELL::CELL_POSITION) noexcept override { };
+	void LockTargetCell(CELL::CELL_POSITION) noexcept override { };
+	void ReleaseTargetCell() noexcept override { };
+	CELL::CELL_PROXY CreateNewCell(CELL::CELL_POSITION, std::string) const noexcept override { return CELL::CELL_PROXY{ }; };
+	void UpdateCell(CELL::CELL_POSITION) const noexcept override;
+	CELL::CELL_POSITION TargetCellGet() const noexcept override { return CELL::CELL_POSITION{ }; };
 };
 #endif // _CONSOLE
 
