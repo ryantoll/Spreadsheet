@@ -27,10 +27,30 @@ void WINDOWS_TABLE::DrawTableOutline() noexcept {
 	// For now, I am just grabbing it once for reuse later.
 	// I expect to subclass the entry bar as well, but I don't have anything built for that yet.
 	// In the meantime, I am just setting the proceedure back to what it was once I grabbed the default.
-	EditHandler = (WNDPROC)SetWindowLong(h_Text_Edit_Bar, GWL_WNDPROC, (LONG)EntryBarWindowProc);
+	EditHandler = (LONG)SetWindowLong(h_Text_Edit_Bar, GWLP_WNDPROC, (LONG)EntryBarWindowProc);
 	//SetWindowLong(h_Text_Edit_Bar, GWL_WNDPROC, (LONG)EditHandler);
 
 	Resize();		// Resize command will fill out the space with cell windows
+	
+	// Insert cells upon creation (Optional)
+	CELL::cell_factory.NewCell({ 1, 1 }, "2");
+	CELL::cell_factory.NewCell({ 1, 2 }, "4");
+	CELL::cell_factory.NewCell({ 1, 3 }, "9");
+	CELL::cell_factory.NewCell({ 1, 4 }, "SUM->");
+	CELL::cell_factory.NewCell({ 1, 5 }, "=SUM( &R1C1, &R1C2, &R1C3 )");
+
+	CELL::cell_factory.NewCell({ 2, 1 }, "=RECIPROCAL( &R1C1 )");
+	CELL::cell_factory.NewCell({ 2, 2 }, "=INVERSE( &R1C2 )");
+	CELL::cell_factory.NewCell({ 2, 3 }, "=&R1C3");
+	CELL::cell_factory.NewCell({ 2, 4 }, "SUM->");
+	CELL::cell_factory.NewCell({ 2, 5 }, "=SUM( &R2C1, &R2C2, &R2C3 )");
+
+	CELL::cell_factory.NewCell({ 3, 1 }, "&R2C1");
+	CELL::cell_factory.NewCell({ 3, 2 }, "&R2C2");
+	CELL::cell_factory.NewCell({ 3, 3 }, "&R2C3");
+	CELL::cell_factory.NewCell({ 3, 4 }, "AVERAGE->");
+	CELL::cell_factory.NewCell({ 3, 5 }, "=AVERAGE( &R3C1, &R3C2, &R3C3 )");
+
 	auto startingCell = WINDOWS_TABLE::CELL_ID{ CELL::CELL_POSITION{ 1, 1 } };
 	SetFocus(startingCell);	// Pick an arbitrary starting cell to avoid error where a cell is created with no position by clicking straight into upper entry bar.
 }
@@ -59,7 +79,7 @@ void WINDOWS_TABLE::AddRow() noexcept {
 		cell_ID.IncrementColumn();
 		h = CreateWindow(TEXT("edit"), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + cell_ID.GetColumn() * width, y0 + (numRows)* height, width, height, hTable, cell_ID, hInst, NULL);
 		table->UpdateCell(cell_ID);								// Update cell display
-		SetWindowLong(h, GWL_WNDPROC, (LONG)CellWindowProc);	// Associate with cell window procedure
+		SetWindowLong(h, GWLP_WNDPROC, (LONG)CellWindowProc);	// Associate with cell window procedure
 	}
 }
 
@@ -78,7 +98,7 @@ void WINDOWS_TABLE::AddColumn() noexcept {
 		cell_ID.IncrementRow();
 		auto h = CreateWindow(TEXT("edit"), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + cell_ID.GetColumn() * width, y0 + cell_ID.GetRow() * height, width, height, hTable, cell_ID, hInst, NULL);
 		table->UpdateCell(cell_ID);								// Update cell display
-		SetWindowLong(h, GWL_WNDPROC, (LONG)CellWindowProc);	// Associate with cell window procedure
+		SetWindowLong(h, GWLP_WNDPROC, (LONG)CellWindowProc);	// Associate with cell window procedure
 	}
 }
 

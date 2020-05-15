@@ -9,26 +9,11 @@ using std::shared_ptr;
 using std::promise;
 using std::invalid_argument;
 using std::make_shared;
-using std::make_unique;
 using std::lock_guard;
 using std::future;
 using std::mutex;
+using std::make_exception_ptr;
 using namespace RYANS_UTILITIES;
-
-// Initialize static data members of CELL
-// !!! -- IMPORTANT -- !!!	cellMap must be initialized after subscrptionMap		!!! -- IMPORTANT -- !!!
-// !!! -- IMPORTANT -- !!!	Improper ordering will cause program to crash upon exit	!!! -- IMPORTANT -- !!!
-// This is due to object lifetimes. Deconstruction of CELLs in cellMap cues unsubscription of CELL observation.
-// The CELL then searches through the deconstructed subscriptionMap to remove itself.
-// This causes an internal noexcept function to throw since it is traversing a tree that is no longer in a valid state.
-std::unordered_map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>, CELL::CELL_HASH> CELL::subscriptionMap{ };	// <Subject, Observers>
-std::unordered_map<CELL::CELL_POSITION, shared_ptr<CELL>, CELL::CELL_HASH> CELL::cellMap{ };						// Stores all CELLs
-// std::map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>> CELL::subscriptionMap{ };		// <Subject, Observers>
-// std::map<CELL::CELL_POSITION, shared_ptr<CELL>> CELL::cellMap{ };							// Stores all CELLs
-mutex CELL::lkSubMap{ }, CELL::lkCellMap{ };
-
-// Part of an alternative function mapping scheme
-//map<wstring, shared_ptr<FUNCTION_CELL::FUNCTION>> functionNameMap{ {wstring(L"SUM"), shared_ptr<FUNCTION_CELL::SUM>()}, {wstring(L"AVERAGE"), shared_ptr<FUNCTION_CELL::AVERAGE>()} };
 
 CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const string& contents) {
 	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
@@ -283,10 +268,11 @@ void FUNCTION_CELL::ARGUMENT::SetValue(double value) noexcept {
 }
 
 // Set an exception for the associated future.
-void FUNCTION_CELL::ARGUMENT::SetValue(std::exception_ptr error) noexcept {
+void FUNCTION_CELL::ARGUMENT::SetValue(std::exception error) noexcept {
+	auto pError = make_exception_ptr(error);
 	auto p = promise<double>{};
 	val = p.get_future();
-	p.set_exception(error);
+	p.set_exception(pError);
 }
 
 FUNCTION_CELL::FUNCTION::FUNCTION(vector<shared_ptr<ARGUMENT>>&& args) : Arguments{ std::move(args) } {
@@ -321,50 +307,68 @@ void FUNCTION_CELL::REFERENCE_ARGUMENT::UpdateArgument() noexcept {
 		if (!refCell || refCell->GetPosition() == parentPosition) { throw invalid_argument{ "Reference Error" }; }	// Check that value exists and is not circular reference
 		SetValue(stod(refCell->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
 	}
-	catch (std::exception error) { SetValue(std::make_exception_ptr(error)); }
+	catch (std::exception error) { SetValue(error); }
 }
 
-/*////////////////////////////////////////////////////////////
+/*////////////////////////////////////////////////////////////////////////////////////////////////////
 // Procedures for supported FUNCTION_CELL::FUNCTIONs
-*/////////////////////////////////////////////////////////////
+// Each procedure needs to move in the argument vector and call UpdateArguments()
+// Each update needs to update all of its arguments recursively
+// Function needs to be updated for each read since its old future is no longer valid once read
+*/////////////////////////////////////////////////////////////////////////////////////////////////////
 
-FUNCTION_CELL::SUM::SUM(vector<shared_ptr<ARGUMENT>>&& args) {
-	Arguments = std::move(args);
-	if (Arguments.size() == 0) { throw invalid_argument("Error parsing input text.\nNo arguments provided."); }
+FUNCTION_CELL::SUM::SUM(vector<shared_ptr<ARGUMENT>>&& args) { Arguments = std::move(args); UpdateArgument(); }
+
+FUNCTION_CELL::AVERAGE::AVERAGE(vector<shared_ptr<ARGUMENT>>&& args) { Arguments = std::move(args); UpdateArgument(); }
+
+FUNCTION_CELL::PRODUCT::PRODUCT(vector<shared_ptr<ARGUMENT>>&& args) { Arguments = std::move(args); UpdateArgument(); }
+
+FUNCTION_CELL::INVERSE::INVERSE(vector<shared_ptr<ARGUMENT>>&& args) { Arguments = std::move(args); UpdateArgument(); }
+
+FUNCTION_CELL::RECIPROCAL::RECIPROCAL(vector<shared_ptr<ARGUMENT>>&& args) { Arguments = std::move(args); UpdateArgument(); }
+
+FUNCTION_CELL::PI::PI() { UpdateArgument(); }
+
+void FUNCTION_CELL::SUM::UpdateArgument() noexcept {
+	if (Arguments.size() == 0) { SetValue(invalid_argument{ "Error parsing input text.\nNo arguments provided." }); }
+	for (auto arg : Arguments) { arg->UpdateArgument(); }
 	auto& input = Arguments;
 	val = async(std::launch::async | std::launch::deferred,
 		[&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->Get(); }  return sum; });
 }
 
-FUNCTION_CELL::AVERAGE::AVERAGE(vector<shared_ptr<ARGUMENT>>&& args) {
-	Arguments = std::move(args);
-	if (Arguments.size() == 0) { throw invalid_argument("Error parsing input text.\nNo arguments provided."); }
+void FUNCTION_CELL::AVERAGE::UpdateArgument() noexcept {
+	if (Arguments.size() == 0) { SetValue(invalid_argument{ "Error parsing input text.\nNo arguments provided." }); }
+	for (auto arg : Arguments) { arg->UpdateArgument(); }
 	auto& input = Arguments;
 	val = async(std::launch::async | std::launch::deferred, 
 		[&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->Get(); }  return sum / input.size(); });
 }
 
-FUNCTION_CELL::PRODUCT::PRODUCT(vector<shared_ptr<ARGUMENT>>&& args) {
-	Arguments = std::move(args);
-	if (Arguments.size() == 0) { throw invalid_argument("Error parsing input text.\nNo arguments provided."); }
+void FUNCTION_CELL::PRODUCT::UpdateArgument() noexcept {
+	if (Arguments.size() == 0) { SetValue(invalid_argument{ "Error parsing input text.\nNo arguments provided." }); }
+	for (auto arg : Arguments) { arg->UpdateArgument(); }
 	double product{ 1 };
 	for (auto x : Arguments) { product *= (*x).Get(); }
 	SetValue(product);
 }
 
-FUNCTION_CELL::INVERSE::INVERSE(vector<shared_ptr<ARGUMENT>>&& args) {
-	Arguments = std::move(args);
-	if (Arguments.size() != 1) { throw invalid_argument("Error parsing input text.\nExactly one argument must be given."); }
+void FUNCTION_CELL::INVERSE::UpdateArgument() noexcept {
+	if (Arguments.size() != 1) { SetValue(invalid_argument{ "Error parsing input text.\nExactly one argument must be given." }); }
+	for (auto arg : Arguments) { arg->UpdateArgument(); }
 	SetValue(((*Arguments.begin())->Get()) * (-1));
 }
 
-FUNCTION_CELL::RECIPROCAL::RECIPROCAL(vector<shared_ptr<ARGUMENT>>&& args) {
-	Arguments = std::move(args);
-	if (Arguments.size() != 1) { throw invalid_argument("Error parsing input text.\nExactly one argument must be given."); }
+void FUNCTION_CELL::RECIPROCAL::UpdateArgument() noexcept {
+	if (Arguments.size() != 1) { SetValue(invalid_argument{ "Error parsing input text.\nExactly one argument must be given." }); }
+	for (auto arg : Arguments) { arg->UpdateArgument(); }
 	SetValue(1 / (*Arguments.begin())->Get());
 }
 
-FUNCTION_CELL::PI::PI() {
-	if (Arguments.size() != 0) { throw invalid_argument("Error parsing input text.\nFunction takes no arguments."); }
-	SetValue(3.14159);	// <== May consider other ways to call/represent this number.
+void FUNCTION_CELL::PI::UpdateArgument() noexcept {
+	if (Arguments.size() != 0) { SetValue(invalid_argument{ "Error parsing input text.\nFunction takes no arguments." }); }
+	for (auto arg : Arguments) { arg->UpdateArgument(); }
+	auto pi = 3.14159;
+	Arguments.push_back(make_shared<VALUE_ARGUMENT>( pi ));
+	SetValue(pi);	// <== May consider other ways to call/represent this number.
 }

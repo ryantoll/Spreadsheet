@@ -123,6 +123,18 @@ inline bool operator!= (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITIO
 	return !(lhs == rhs);
 }
 
+// Initialize static data members of CELL
+// !!! -- IMPORTANT -- !!!	cellMap must be initialized after subscrptionMap		!!! -- IMPORTANT -- !!!
+// !!! -- IMPORTANT -- !!!	Improper ordering will cause program to crash upon exit	!!! -- IMPORTANT -- !!!
+// This is due to object lifetimes. Deconstruction of CELLs in cellMap cues unsubscription of CELL observation.
+// The CELL then searches through the deconstructed subscriptionMap to remove itself.
+// This causes an internal noexcept function to throw since it is traversing a tree that is no longer in a valid state.
+inline std::unordered_map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>, CELL::CELL_HASH> CELL::subscriptionMap{ };	// <Subject, Observers>
+inline std::unordered_map<CELL::CELL_POSITION, std::shared_ptr<CELL>, CELL::CELL_HASH> CELL::cellMap{ };						// Stores all CELLs
+// std::map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>> CELL::subscriptionMap{ };		// <Subject, Observers>
+// std::map<CELL::CELL_POSITION, shared_ptr<CELL>> CELL::cellMap{ };							// Stores all CELLs
+inline std::mutex CELL::lkSubMap{ }, CELL::lkCellMap{ };
+
 // A cell that is simply raw text merely outputs its text.
 class TEXT_CELL : public CELL {
 public:
@@ -170,16 +182,16 @@ public:
 	void InitializeCell() override;
 	void UpdateCell() override;		// Need to add recalculate logic here for when reference cells update
 
-	struct ARGUMENT { 
+	struct ARGUMENT {
 		virtual void UpdateArgument() noexcept { }	// Logic to update argument when dependent cells update. May be trivial.
 		double Get() { return val.get(); }
 	protected:
 		std::future<double> val;
 		void SetValue(double) noexcept;
-		void SetValue(std::exception_ptr) noexcept;
+		void SetValue(std::exception) noexcept;
 	};
 
-	struct FUNCTION: public ARGUMENT {
+	struct FUNCTION : public ARGUMENT {
 		FUNCTION() = default;
 		FUNCTION(std::vector<std::shared_ptr<ARGUMENT>>&&);
 		std::vector<std::shared_ptr<ARGUMENT>> Arguments;
@@ -203,18 +215,21 @@ public:
 
 protected:
 	std::shared_ptr<ARGUMENT> func;
-	
+
 	std::shared_ptr<FUNCTION_CELL::ARGUMENT> ParseFunctionString(std::string&);
 public:
 	/*////////////////////////////////////////////////////////////
 	// List of available operations overriding Function
 	*/////////////////////////////////////////////////////////////
-	struct SUM : public FUNCTION { SUM(std::vector<std::shared_ptr<ARGUMENT>>&& args); };
-	struct AVERAGE : public FUNCTION { AVERAGE(std::vector<std::shared_ptr<ARGUMENT>>&& args); };
-	struct PRODUCT : public FUNCTION { PRODUCT(std::vector<std::shared_ptr<ARGUMENT>>&& args); };
-	struct INVERSE : public FUNCTION { INVERSE(std::vector<std::shared_ptr<ARGUMENT>>&& args); };
-	struct RECIPROCAL : public FUNCTION { RECIPROCAL(std::vector<std::shared_ptr<ARGUMENT>>&& args); };
-	struct PI : public FUNCTION { PI(); };
+	struct SUM : public FUNCTION { SUM(std::vector<std::shared_ptr<ARGUMENT>>&& args); void UpdateArgument() noexcept final; };
+	struct AVERAGE : public FUNCTION { AVERAGE(std::vector<std::shared_ptr<ARGUMENT>>&& args); void UpdateArgument() noexcept final; };
+	struct PRODUCT : public FUNCTION { PRODUCT(std::vector<std::shared_ptr<ARGUMENT>>&& args); void UpdateArgument() noexcept final; };
+	struct INVERSE : public FUNCTION { INVERSE(std::vector<std::shared_ptr<ARGUMENT>>&& args); void UpdateArgument() noexcept final; };
+	struct RECIPROCAL : public FUNCTION { RECIPROCAL(std::vector<std::shared_ptr<ARGUMENT>>&& args); void UpdateArgument() noexcept final; };
+	struct PI : public FUNCTION { PI(); void UpdateArgument() noexcept final; };
+
+	// Part of an alternative function mapping scheme
+	// std::unordered_map<wstring, shared_ptr<FUNCTION_CELL::FUNCTION>> functionNameMap{ {wstring(L"SUM"), shared_ptr<FUNCTION_CELL::SUM>()}, {wstring(L"AVERAGE"), shared_ptr<FUNCTION_CELL::AVERAGE>()} };
 };
 
 #endif // !__CELL_CLASS

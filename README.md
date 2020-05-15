@@ -22,6 +22,14 @@ A reference is made starting with the '&' character followed by "R___C___" filli
 In Progress: Function Cells
 Function cells are created by starting with '='. A function cell is a cell that contains a single function, a vector of arguments, and a single result for display. Each argument may be either a single value, a reference to another cell, or another function. As such, functions can be recursively composed to contain any number of sub-functions. Function cells make use of the "Strategy" pattern to allow for a multiplicity of functionallities utilizing a consistent interface. (Each FUCNTION object has an operation it performs on its vector of ARGUMENTS to produce a single result, which itself is an ARGUMENT to enable recursion.) This option of specializing a generic base function object for each operation is selected to fit the goal of demonstrating a variety of OOP design patterns. One possible alternative is to store a function pointer that can be assigned the appropraite function (such as a lambda or other callable object) as opposed to creating a subclass for each possible function the program recognizes.
 
+FUNCTION LIST:
+=SUM(___,___,___)
+=AVERAGE(___,___,___)
+=PRODUCT(___,___,___)
+=RECIPROCAL(___)
+=INVERSE(___)
+=PI()
+
 The ARGUMENT object used by FUNCTIONs makes use of the "Composite" design pattern. This allows a FUNCTION to treat all arguments as a single value, ignoring any underlying complexity. A FUNCTION simply calls .get() on the stored future to interpret the ARGUMENT as a single value. This is trivial in the case of a reference or single value, which simply sets the future. However, it is of great utility in the case of nested functions, which can be treated as a single **already calculated** value. The program recursively launches asynchronous function calls to determine the resultant values as needed, and then executes the parent function as expected once they're all ready. This neatly solves any issue of control flow in waiting for results from an indeterminate number of nested function calls.
 
 Future work includes further GUI improvements as well as further developing the function cell type. The structure is already laid out to show the implementation of OOP principles used and demonstrates functionallity of the design structure. However, the parsing of functions can get very convoluted and needs further fleshing out to handle the various complexities of input form. This may get tangled enough to justify its own structure design just to make the parsing clear and sensible. Other parsing tools break up segments into "tokens", so I may look into prior work on that subject to use as a guide for my own implementation. I also need to figure out the best way to map strings representing function names to their corresponding objects. Also under consideration is a save/load feature.
