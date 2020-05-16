@@ -1,5 +1,5 @@
-#ifndef __TABLE_CLASS
-#define __TABLE_CLASS
+#ifndef TABLE_CLASS_H
+#define TABLE_CLASS_H
 #include "stdafx.h"
 #include "__Cell.h"
 
@@ -170,4 +170,4 @@ protected:
 #endif // _CONSOLE
 
 
-#endif //!__TABLE_CLASS
+#endif //!TABLE_CLASS_H

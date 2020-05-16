@@ -8,9 +8,7 @@
 // GWL_WNDPROC -> GWLP_WNDPROC
 #endif // _WIN64
 
-using std::wstring;
-using std::to_wstring;
-using std::vector;
+using namespace std;
 using namespace RYANS_UTILITIES;
 
 const unsigned long id_Table_Background{ 1001 }, id_Text_Edit_Bar{ 1002 };
@@ -27,29 +25,29 @@ void WINDOWS_TABLE::DrawTableOutline() noexcept {
 	// For now, I am just grabbing it once for reuse later.
 	// I expect to subclass the entry bar as well, but I don't have anything built for that yet.
 	// In the meantime, I am just setting the proceedure back to what it was once I grabbed the default.
-	EditHandler = (LONG)SetWindowLong(h_Text_Edit_Bar, GWLP_WNDPROC, (LONG)EntryBarWindowProc);
+	EditHandler = reinterpret_cast<WNDPROC>(SetWindowLong(h_Text_Edit_Bar, GWLP_WNDPROC, reinterpret_cast<LONG>(EntryBarWindowProc)));
 	//SetWindowLong(h_Text_Edit_Bar, GWL_WNDPROC, (LONG)EditHandler);
 
 	Resize();		// Resize command will fill out the space with cell windows
 	
 	// Insert cells upon creation (Optional)
-	CELL::cell_factory.NewCell({ 1, 1 }, "2");
-	CELL::cell_factory.NewCell({ 1, 2 }, "4");
-	CELL::cell_factory.NewCell({ 1, 3 }, "9");
-	CELL::cell_factory.NewCell({ 1, 4 }, "SUM->");
-	CELL::cell_factory.NewCell({ 1, 5 }, "=SUM( &R1C1, &R1C2, &R1C3 )");
+	CELL::cell_factory.NewCell({ 1, 1 }, "2"s);
+	CELL::cell_factory.NewCell({ 1, 2 }, "4"s);
+	CELL::cell_factory.NewCell({ 1, 3 }, "9"s);
+	CELL::cell_factory.NewCell({ 1, 4 }, "SUM->"s);
+	CELL::cell_factory.NewCell({ 1, 5 }, "=SUM( &R1C1, &R1C2, &R1C3 )"s);
 
-	CELL::cell_factory.NewCell({ 2, 1 }, "=RECIPROCAL( &R1C1 )");
-	CELL::cell_factory.NewCell({ 2, 2 }, "=INVERSE( &R1C2 )");
-	CELL::cell_factory.NewCell({ 2, 3 }, "=&R1C3");
-	CELL::cell_factory.NewCell({ 2, 4 }, "SUM->");
-	CELL::cell_factory.NewCell({ 2, 5 }, "=SUM( &R2C1, &R2C2, &R2C3 )");
+	CELL::cell_factory.NewCell({ 2, 1 }, "=RECIPROCAL( &R1C1 )"s);
+	CELL::cell_factory.NewCell({ 2, 2 }, "=INVERSE( &R1C2 )"s);
+	CELL::cell_factory.NewCell({ 2, 3 }, "=&R1C3"s);
+	CELL::cell_factory.NewCell({ 2, 4 }, "SUM->"s);
+	CELL::cell_factory.NewCell({ 2, 5 }, "=SUM( &R2C1, &R2C2, &R2C3 )"s);
 
-	CELL::cell_factory.NewCell({ 3, 1 }, "&R2C1");
-	CELL::cell_factory.NewCell({ 3, 2 }, "&R2C2");
-	CELL::cell_factory.NewCell({ 3, 3 }, "&R2C3");
-	CELL::cell_factory.NewCell({ 3, 4 }, "AVERAGE->");
-	CELL::cell_factory.NewCell({ 3, 5 }, "=AVERAGE( &R3C1, &R3C2, &R3C3 )");
+	CELL::cell_factory.NewCell({ 3, 1 }, "&R2C1"s);
+	CELL::cell_factory.NewCell({ 3, 2 }, "&R2C2"s);
+	CELL::cell_factory.NewCell({ 3, 3 }, "&R2C3"s);
+	CELL::cell_factory.NewCell({ 3, 4 }, "AVERAGE->"s);
+	CELL::cell_factory.NewCell({ 3, 5 }, "=AVERAGE( &R3C1, &R3C2, &R3C3 )"s);
 
 	auto startingCell = WINDOWS_TABLE::CELL_ID{ CELL::CELL_POSITION{ 1, 1 } };
 	SetFocus(startingCell);	// Pick an arbitrary starting cell to avoid error where a cell is created with no position by clicking straight into upper entry bar.
@@ -79,7 +77,7 @@ void WINDOWS_TABLE::AddRow() noexcept {
 		cell_ID.IncrementColumn();
 		h = CreateWindow(TEXT("edit"), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + cell_ID.GetColumn() * width, y0 + (numRows)* height, width, height, hTable, cell_ID, hInst, NULL);
 		table->UpdateCell(cell_ID);								// Update cell display
-		SetWindowLong(h, GWLP_WNDPROC, (LONG)CellWindowProc);	// Associate with cell window procedure
+		SetWindowLong(h, GWLP_WNDPROC, reinterpret_cast<LONG>(CellWindowProc));	// Associate with cell window procedure
 	}
 }
 
@@ -98,7 +96,7 @@ void WINDOWS_TABLE::AddColumn() noexcept {
 		cell_ID.IncrementRow();
 		auto h = CreateWindow(TEXT("edit"), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + cell_ID.GetColumn() * width, y0 + cell_ID.GetRow() * height, width, height, hTable, cell_ID, hInst, NULL);
 		table->UpdateCell(cell_ID);								// Update cell display
-		SetWindowLong(h, GWLP_WNDPROC, (LONG)CellWindowProc);	// Associate with cell window procedure
+		SetWindowLong(h, GWLP_WNDPROC, reinterpret_cast<LONG>(CellWindowProc));	// Associate with cell window procedure
 	}
 }
 
@@ -167,11 +165,11 @@ void WINDOWS_TABLE::FocusCell(CELL::CELL_POSITION pos) noexcept {
 	auto posCreateCell = CELL::CELL_POSITION{ };
 	auto text = wstring{ };
 	if (pos == posTargetCell) {
-		ReleaseTargetCell();									// Release focus when selecting straight to target to open it up for new target selection.
-		posCreateCell = pos;									// Create new cell at current position
-		text = Edit_Box_to_Wstring(h_Text_Edit_Bar);			// Text for cell creation comes from upper entry bar
-		mostRecentCell = CELL::CELL_POSITION{ };				// This should not be queued for creation nor for targetting until selected again
-		SendMessage(id, WM_KEYDOWN, (WPARAM)VK_RETURN, NULL);	// Send Return-key message to self to move down to next cell
+		ReleaseTargetCell();												// Release focus when selecting straight to target to open it up for new target selection.
+		posCreateCell = pos;												// Create new cell at current position
+		text = Edit_Box_to_Wstring(h_Text_Edit_Bar);						// Text for cell creation comes from upper entry bar
+		mostRecentCell = CELL::CELL_POSITION{ };							// This should not be queued for creation nor for targetting until selected again
+		SendMessage(id, WM_KEYDOWN, static_cast<WPARAM>(VK_RETURN), NULL);	// Send Return-key message to self to move down to next cell
 	}
 	else {
 		auto cell = CELL::GetCellProxy(pos);
@@ -206,8 +204,8 @@ void WINDOWS_TABLE::UnfocusEntryBox(CELL::CELL_POSITION pos) noexcept {
 		auto out = wstring{ L"&" };
 		out += L"R" + to_wstring(id.GetRow());
 		out += L"C" + to_wstring(id.GetColumn());
-		SetFocus(h_Text_Edit_Bar);												// Set focus back to upper edit bar
-		SendMessage(h_Text_Edit_Bar, EM_REPLACESEL, 0, (LPARAM)out.c_str());	// Get row and column of selected cell and add reference text to upper edit bar
+		SetFocus(h_Text_Edit_Bar);																// Set focus back to upper edit bar
+		SendMessage(h_Text_Edit_Bar, EM_REPLACESEL, 0, reinterpret_cast<LPARAM>(out.c_str()));	// Get row and column of selected cell and add reference text to upper edit bar
 	}
 }
 

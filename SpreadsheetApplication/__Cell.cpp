@@ -3,16 +3,7 @@
 #include "__Cell.h"
 #include "__Table.h"
 
-using std::string;
-using std::vector;
-using std::shared_ptr;
-using std::promise;
-using std::invalid_argument;
-using std::make_shared;
-using std::lock_guard;
-using std::future;
-using std::mutex;
-using std::make_exception_ptr;
+using namespace std;
 using namespace RYANS_UTILITIES;
 
 CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const string& contents) {
@@ -169,12 +160,12 @@ void NUMERICAL_CELL::InitializeCell() {
 // I'm not sure how best to implement this mapping of text to function objects.
 // Each one must get a newly created object, lest they share the same arguments.
 shared_ptr<FUNCTION_CELL::FUNCTION> MatchNameToFunction(const string& inputText, vector<shared_ptr<FUNCTION_CELL::ARGUMENT>>&& args) {	
-	if (inputText == "SUM") { return make_shared<FUNCTION_CELL::SUM>( std::move(args) ); }
-	else if (inputText == "AVERAGE") { return make_shared<FUNCTION_CELL::AVERAGE>( std::move(args) ); }
-	else if (inputText == "PRODUCT") { return make_shared<FUNCTION_CELL::PRODUCT>( std::move(args) ); }
-	else if (inputText == "INVERSE") { return make_shared<FUNCTION_CELL::INVERSE> (std::move(args) ); }
-	else if (inputText == "RECIPROCAL") { return make_shared<FUNCTION_CELL::RECIPROCAL>( std::move(args) ); }
-	else if (inputText == "PI") { return make_shared<FUNCTION_CELL::PI>(); }
+	if (inputText == "SUM"s) { return make_shared<FUNCTION_CELL::SUM>( std::move(args) ); }
+	else if (inputText == "AVERAGE"s) { return make_shared<FUNCTION_CELL::AVERAGE>( std::move(args) ); }
+	else if (inputText == "PRODUCT"s) { return make_shared<FUNCTION_CELL::PRODUCT>( std::move(args) ); }
+	else if (inputText == "INVERSE"s) { return make_shared<FUNCTION_CELL::INVERSE> (std::move(args) ); }
+	else if (inputText == "RECIPROCAL"s) { return make_shared<FUNCTION_CELL::RECIPROCAL>( std::move(args) ); }
+	else if (inputText == "PI"s) { return make_shared<FUNCTION_CELL::PI>(); }
 	else { return make_shared<FUNCTION_CELL::FUNCTION>( std::move(args) ); }
 }
 
@@ -206,7 +197,7 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& i
 		do {
 			n = 0; n2 = 0;												// Reset indicies so each run starts fresh
 			do {
-				n = inputText.find_first_of(",()", n2);
+				n = inputText.find_first_of(",()"s, n2);
 				if (n == string::npos) { break; }						// End of string
 				else if (inputText[n] == L'(') { ++countParentheses; }
 				else if (inputText[n] == L')') { --countParentheses; }

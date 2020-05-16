@@ -6,11 +6,7 @@
 #include "Utilities.h"
 #include "__Table.h"
 
-using std::cin;
-using std::cout;
-using std::endl;
-using std::string;
-using std::stoi;
+using namespace std;
 
 constexpr auto innerCellWidth{ 10 };
 constexpr auto maxColumns{ 8 };

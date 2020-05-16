@@ -7,8 +7,8 @@
 // The end goal is to create clear, flexible code open to further extention.
 *////////////////////////////////////////////////////////////////////////////////////////////////
 
-#ifndef __CELL_CLASS
-#define __CELL_CLASS
+#ifndef CELL_CLASS_H
+#define CELL_CLASS_H
 
 #include "stdafx.h"
 
@@ -232,4 +232,4 @@ public:
 	// std::unordered_map<wstring, shared_ptr<FUNCTION_CELL::FUNCTION>> functionNameMap{ {wstring(L"SUM"), shared_ptr<FUNCTION_CELL::SUM>()}, {wstring(L"AVERAGE"), shared_ptr<FUNCTION_CELL::AVERAGE>()} };
 };
 
-#endif // !__CELL_CLASS
+#endif // !CELL_CLASS_H
