@@ -183,10 +183,12 @@ public:
 	void UpdateCell() override;		// Need to add recalculate logic here for when reference cells update
 
 	struct ARGUMENT {
-		virtual void UpdateArgument() noexcept { }	// Logic to update argument when dependent cells update. May be trivial.
-		double Get() { return val.get(); }
+		virtual bool UpdateArgument() noexcept { return true; }				// Logic to update argument when dependent cells update. May be trivial.
+		double Get() { return stillValid ? storedArgument : val.get(); }	// Lazy evaluation
 	protected:
 		std::future<double> val;
+		double storedArgument{ };
+		bool stillValid{ false };
 		void SetValue(double) noexcept;
 		void SetValue(std::exception) noexcept;
 	};
@@ -196,21 +198,20 @@ public:
 		FUNCTION(std::vector<std::shared_ptr<ARGUMENT>>&&);
 		std::vector<std::shared_ptr<ARGUMENT>> Arguments;
 		//double (*funPTR) (vector<ARGUMENT>);			// Alternate to subclassing, just assign a function to this pointer at runtime.
-		void UpdateArgument() noexcept override;
+		bool UpdateArgument() noexcept override;
 		bool error{ false };
 	};
 
 	struct VALUE_ARGUMENT : public ARGUMENT {
 		explicit VALUE_ARGUMENT(double);
-		double storedArgument{ };
-		void UpdateArgument() noexcept override;
+		bool UpdateArgument() noexcept override;
 	};
 
 	struct REFERENCE_ARGUMENT : public ARGUMENT {
 		REFERENCE_ARGUMENT(FUNCTION_CELL&, CELL_POSITION);
 		~REFERENCE_ARGUMENT() { UnsubscribeFromCell(referencePosition, parentPosition); }
 		CELL_POSITION referencePosition, parentPosition;
-		void UpdateArgument() noexcept override;
+		bool UpdateArgument() noexcept override;
 	};
 
 protected:
@@ -221,12 +222,12 @@ public:
 	/*////////////////////////////////////////////////////////////
 	// List of available operations overriding Function
 	*/////////////////////////////////////////////////////////////
-	struct SUM : public FUNCTION { SUM(std::vector<std::shared_ptr<ARGUMENT>>&& args); void UpdateArgument() noexcept final; };
-	struct AVERAGE : public FUNCTION { AVERAGE(std::vector<std::shared_ptr<ARGUMENT>>&& args); void UpdateArgument() noexcept final; };
-	struct PRODUCT : public FUNCTION { PRODUCT(std::vector<std::shared_ptr<ARGUMENT>>&& args); void UpdateArgument() noexcept final; };
-	struct INVERSE : public FUNCTION { INVERSE(std::vector<std::shared_ptr<ARGUMENT>>&& args); void UpdateArgument() noexcept final; };
-	struct RECIPROCAL : public FUNCTION { RECIPROCAL(std::vector<std::shared_ptr<ARGUMENT>>&& args); void UpdateArgument() noexcept final; };
-	struct PI : public FUNCTION { PI(); void UpdateArgument() noexcept final; };
+	struct SUM : public FUNCTION { SUM(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
+	struct AVERAGE : public FUNCTION { AVERAGE(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
+	struct PRODUCT : public FUNCTION { PRODUCT(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
+	struct INVERSE : public FUNCTION { INVERSE(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
+	struct RECIPROCAL : public FUNCTION { RECIPROCAL(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
+	struct PI : public FUNCTION { PI(); bool UpdateArgument() noexcept final; };
 
 	// Part of an alternative function mapping scheme
 	// std::unordered_map<wstring, shared_ptr<FUNCTION_CELL::FUNCTION>> functionNameMap{ {wstring(L"SUM"), shared_ptr<FUNCTION_CELL::SUM>()}, {wstring(L"AVERAGE"), shared_ptr<FUNCTION_CELL::AVERAGE>()} };

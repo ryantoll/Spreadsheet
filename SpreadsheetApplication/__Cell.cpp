@@ -273,18 +273,19 @@ FUNCTION_CELL::FUNCTION::FUNCTION(vector<shared_ptr<ARGUMENT>>&& args) : Argumen
 }
 
 // Update FUNCTION by first updating all arguments, then setting the future again.
-void FUNCTION_CELL::FUNCTION::UpdateArgument() noexcept { 
-	for (auto arg : Arguments) { arg->UpdateArgument(); } 
-	if (Arguments.size() == 0) { error = true; return; }
+bool FUNCTION_CELL::FUNCTION::UpdateArgument() noexcept { 
+	for (auto arg : Arguments) { if (arg->UpdateArgument()) { stillValid = false; } }
+	if (Arguments.size() == 0) { error = true; stillValid = false; return !stillValid; }
 	try { SetValue((*Arguments.begin())->Get()); }
-	catch (...) { error = true; return; }
+	catch (...) { error = true; }
+	return !stillValid;
 }
 
 // A single value merely needs to set the associated future with the given value.
-FUNCTION_CELL::VALUE_ARGUMENT::VALUE_ARGUMENT(double arg): storedArgument(arg) { SetValue(arg); }
+FUNCTION_CELL::VALUE_ARGUMENT::VALUE_ARGUMENT(double arg) { storedArgument = arg; SetValue(arg); }
 
 // Ditto for updating the argument.
-void FUNCTION_CELL::VALUE_ARGUMENT::UpdateArgument() noexcept  { SetValue(storedArgument); }
+bool FUNCTION_CELL::VALUE_ARGUMENT::UpdateArgument() noexcept { SetValue(storedArgument); return false; }
 
 // Reference arugment stores positions of target and parent cells and then updates it's argument.
 FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell, CELL_POSITION pos) 
@@ -292,13 +293,16 @@ FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell,
 
 // Look up referenced value and store in the associated future.
 // Store an exception if there's a dangling or circular reference.
-void FUNCTION_CELL::REFERENCE_ARGUMENT::UpdateArgument() noexcept {
+bool FUNCTION_CELL::REFERENCE_ARGUMENT::UpdateArgument() noexcept {
 	auto refCell = GetCellProxy(referencePosition);
 	try {
 		if (!refCell || refCell->GetPosition() == parentPosition) { throw invalid_argument{ "Reference Error" }; }	// Check that value exists and is not circular reference
-		SetValue(stod(refCell->DisplayOutput()));	// Stored value may need to be tracked separately from display value eventually
+		auto nValue = stod(refCell->DisplayOutput());
+		SetValue(nValue);	// Stored value may need to be tracked separately from display value eventually
+		nValue == storedArgument ? stillValid = true : stillValid = false;
 	}
 	catch (std::exception error) { SetValue(error); }
+	return !stillValid;
 }
 
 /*////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -320,46 +324,63 @@ FUNCTION_CELL::RECIPROCAL::RECIPROCAL(vector<shared_ptr<ARGUMENT>>&& args) { Arg
 
 FUNCTION_CELL::PI::PI() { UpdateArgument(); }
 
-void FUNCTION_CELL::SUM::UpdateArgument() noexcept {
+bool FUNCTION_CELL::SUM::UpdateArgument() noexcept {
 	if (Arguments.size() == 0) { SetValue(invalid_argument{ "Error parsing input text.\nNo arguments provided." }); }
-	for (auto arg : Arguments) { arg->UpdateArgument(); }
-	auto& input = Arguments;
-	val = async(std::launch::async | std::launch::deferred,
-		[&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->Get(); }  return sum; });
+	for (auto arg : Arguments) { if (arg->UpdateArgument()) { stillValid = false; } }
+	if (!stillValid) {
+		auto& input = Arguments;
+		val = async(std::launch::async | std::launch::deferred,
+			[&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->Get(); }  return sum; });
+	}
+	return !stillValid;
 }
 
-void FUNCTION_CELL::AVERAGE::UpdateArgument() noexcept {
+bool FUNCTION_CELL::AVERAGE::UpdateArgument() noexcept {
 	if (Arguments.size() == 0) { SetValue(invalid_argument{ "Error parsing input text.\nNo arguments provided." }); }
-	for (auto arg : Arguments) { arg->UpdateArgument(); }
-	auto& input = Arguments;
-	val = async(std::launch::async | std::launch::deferred, 
-		[&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->Get(); }  return sum / input.size(); });
+	for (auto arg : Arguments) { if (arg->UpdateArgument()) { stillValid = false; } }
+	if (!stillValid) {
+		auto& input = Arguments;
+		val = async(std::launch::async | std::launch::deferred,
+			[&input] { auto sum = 0.0; for (auto i = input.begin(); i != input.end(); ++i) { sum += (*i)->Get(); }  return sum / input.size(); });
+	}
+	return !stillValid;
 }
 
-void FUNCTION_CELL::PRODUCT::UpdateArgument() noexcept {
+bool FUNCTION_CELL::PRODUCT::UpdateArgument() noexcept {
 	if (Arguments.size() == 0) { SetValue(invalid_argument{ "Error parsing input text.\nNo arguments provided." }); }
-	for (auto arg : Arguments) { arg->UpdateArgument(); }
-	double product{ 1 };
-	for (auto x : Arguments) { product *= (*x).Get(); }
-	SetValue(product);
+	for (auto arg : Arguments) { if (arg->UpdateArgument()) { stillValid = false; } }
+	if (!stillValid) {
+		double product{ 1 };
+		try { for (auto x : Arguments) { product *= (*x).Get(); } SetValue(product); }
+		catch (exception error) { SetValue(error); }
+	}
+	return !stillValid;
 }
 
-void FUNCTION_CELL::INVERSE::UpdateArgument() noexcept {
+bool FUNCTION_CELL::INVERSE::UpdateArgument() noexcept {
 	if (Arguments.size() != 1) { SetValue(invalid_argument{ "Error parsing input text.\nExactly one argument must be given." }); }
-	for (auto arg : Arguments) { arg->UpdateArgument(); }
-	SetValue(((*Arguments.begin())->Get()) * (-1));
+	for (auto arg : Arguments) { if (arg->UpdateArgument()) { stillValid = false; } }
+	if (!stillValid) {
+		try { SetValue(((*Arguments.begin())->Get()) * (-1)); }
+		catch (exception error) { SetValue(error); }
+	}
+	return !stillValid;
 }
 
-void FUNCTION_CELL::RECIPROCAL::UpdateArgument() noexcept {
+bool FUNCTION_CELL::RECIPROCAL::UpdateArgument() noexcept {
 	if (Arguments.size() != 1) { SetValue(invalid_argument{ "Error parsing input text.\nExactly one argument must be given." }); }
-	for (auto arg : Arguments) { arg->UpdateArgument(); }
-	SetValue(1 / (*Arguments.begin())->Get());
+	for (auto arg : Arguments) { if (arg->UpdateArgument()) { stillValid = false; } }
+	if (!stillValid) {
+		try { SetValue(1 / (*Arguments.begin())->Get()); }
+		catch (exception error) { SetValue(error); }
+	}
+	return !stillValid;
 }
 
-void FUNCTION_CELL::PI::UpdateArgument() noexcept {
+bool FUNCTION_CELL::PI::UpdateArgument() noexcept {
 	if (Arguments.size() != 0) { SetValue(invalid_argument{ "Error parsing input text.\nFunction takes no arguments." }); }
-	for (auto arg : Arguments) { arg->UpdateArgument(); }
 	auto pi = 3.14159;
 	Arguments.push_back(make_shared<VALUE_ARGUMENT>( pi ));
 	SetValue(pi);	// <== May consider other ways to call/represent this number.
+	return !stillValid;
 }
