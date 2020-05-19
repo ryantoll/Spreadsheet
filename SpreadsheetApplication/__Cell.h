@@ -36,6 +36,7 @@ public:
 	// Users of CELL have only indirect access to CELLs since they should not be responsible for sending notifications.
 	class CELL_PROXY {
 		friend class CELL;
+		friend class CELL_FACTORY;
 		std::shared_ptr<CELL> cell;
 		auto operator*() const noexcept { return *cell; }
 	public:
@@ -60,6 +61,7 @@ private:
 	class CELL_FACTORY {
 	public:
 		static CELL_PROXY NewCell(CELL_POSITION, const std::string&);
+		static void RecreateCell(CELL_PROXY&, CELL_POSITION);
 		static void NotifyAll(CELL_POSITION);
 	};
 

@@ -10,7 +10,7 @@ CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const strin
 	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
 	// but also prevents accidental errors in failing to specify a location.
 	// R == 0 || C == 0 almost certainly indicates a failure to specify one or both arguments.
-	if (position.row == 0 || position.column == 0) { throw invalid_argument("Neither Row 0, nor Column 0 exist."); }
+	if (position.row == 0 || position.column == 0) { return CELL::CELL_PROXY{ nullptr }; }//throw invalid_argument("Neither Row 0, nor Column 0 exist."); }
 
 	// Empty contents argument not only fails to create a new cell, but deletes any cell that may already exist at that position.
 	// Notify any observing cells about the change *AFTER* the change has occurred.
@@ -58,6 +58,17 @@ CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const strin
 
 	table->UpdateCell(position);			// Notify GUI to update cell value.
 	return GetCellProxy(position);			// Return stored cell so that failed numerical cells return the stored fallback text cell rather than the original failed numerical cell.
+}
+
+void CELL::CELL_FACTORY::RecreateCell(CELL_PROXY& cell, CELL_POSITION pos) {
+	// if (!cell) { cell.cell = make_shared<TEXT_CELL>(); }
+	{
+		auto lk = lock_guard<mutex>{ lkCellMap };		// Lock map only for write operation.
+		if (!cell) { cellMap.erase(pos); }
+		else { cellMap[pos] = cell.cell; }
+	}
+	NotifyAll(pos);
+	table->UpdateCell(pos);
 }
 
 // Notifies observing CELLs of change in underlying data.

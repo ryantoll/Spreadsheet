@@ -14,7 +14,7 @@ using namespace RYANS_UTILITIES;
 const unsigned long id_Table_Background{ 1001 }, id_Text_Edit_Bar{ 1002 };
 
 // Initial window setup
-void WINDOWS_TABLE::DrawTableOutline() noexcept {
+void WINDOWS_TABLE::InitializeTable() noexcept {
 	hParent = hwnd;
 
 	hTable = CreateWindow(TEXT("static"), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, 0, 0, 0, 0, hParent, reinterpret_cast<HMENU>(id_Table_Background), hInst, NULL);		// Invisible background canvas window
@@ -55,8 +55,10 @@ void WINDOWS_TABLE::DrawTableOutline() noexcept {
 
 // Logic for Cell Windows to construct and display the appropriate CELL based upon user input string
 CELL::CELL_PROXY WINDOWS_TABLE::CreateNewCell(CELL::CELL_POSITION pos, std::string rawInput) const noexcept {
-	if (pos == CELL::CELL_POSITION{ }) { return CELL::CELL_PROXY{ nullptr }; }
-	return CELL::cell_factory.NewCell(pos, rawInput);	// Create new cell
+	auto oldCell = CELL::GetCellProxy(pos);
+	auto nCell = CELL::cell_factory.NewCell(pos, rawInput);
+	if (nCell) { undoStack.emplace_back(oldCell, nCell); redoStack.clear(); }
+	return nCell;
 }
 
 WINDOWS_TABLE::~WINDOWS_TABLE() { }		// Hook for any on-exit logic
@@ -64,7 +66,7 @@ WINDOWS_TABLE::~WINDOWS_TABLE() { }		// Hook for any on-exit logic
 // Create a new row of cells at bottom edge.
 void WINDOWS_TABLE::AddRow() noexcept {
 	auto tempVec = vector<HWND>{ };
-	auto cell_ID = WINDOWS_TABLE::CELL_ID{ CELL::CELL_POSITION{ } };
+	auto cell_ID = WINDOWS_TABLE::CELL_ID{ };
 	cell_ID.SetRow(++numRows).SetColumn(0);
 	//cell_ID.SetRow(origin.row + ++numRows);
 
@@ -83,7 +85,7 @@ void WINDOWS_TABLE::AddRow() noexcept {
 
 // Create a new column of cells at right edge.
 void WINDOWS_TABLE::AddColumn() noexcept {
-	auto cell_ID = WINDOWS_TABLE::CELL_ID{ CELL::CELL_POSITION{ } };
+	auto cell_ID = WINDOWS_TABLE::CELL_ID{ };
 	cell_ID.SetRow(0).SetColumn(++numColumns);
 	//cell_ID.SetColumn(origin.column + ++numColumns);
 
@@ -102,7 +104,7 @@ void WINDOWS_TABLE::AddColumn() noexcept {
 
 // Remove bottom row of cells.
 void WINDOWS_TABLE::RemoveRow() noexcept {
-	auto id = WINDOWS_TABLE::CELL_ID{ CELL::CELL_POSITION{ } };
+	auto id = WINDOWS_TABLE::CELL_ID{ };
 	auto h = HWND{ id.SetRow(numRows) };
 	while (id.GetColumn() <= numColumns) { DestroyWindow(h); h = id.IncrementColumn(); }	// Increment through row and destroy cells
 	numRows--;
@@ -110,7 +112,7 @@ void WINDOWS_TABLE::RemoveRow() noexcept {
 
 // Remove right column of cells.
 void WINDOWS_TABLE::RemoveColumn() noexcept {
-	auto id = WINDOWS_TABLE::CELL_ID{ CELL::CELL_POSITION{ } };
+	auto id = WINDOWS_TABLE::CELL_ID{ };
 	auto h = HWND{ id.SetRow(numRows) };
 	while (id.GetRow() <= numRows) { DestroyWindow(h); h = id.IncrementRow(); }	// Increment through column and destroy cells
 	numColumns--;
@@ -125,9 +127,9 @@ void WINDOWS_TABLE::Resize() noexcept {
 	auto row = static_cast<unsigned int>(ceil(static_cast<double>(rect.bottom) / height) - 2);		// Leave off label row and Entry box
 
 	// Place hard-cap on row & column number here.
-	if (col > __MaxColumn) { col = __MaxColumn - 1; }
+	if (col > MaxColumn_) { col = MaxColumn_ - 1; }
 	else if (col < 1) { col = 1; }
-	if (row > __MaxRow) { row = __MaxRow - 1; }
+	if (row > MaxRow_) { row = MaxRow_ - 1; }
 	else if (row < 1) { row = 1; }
 
 	// Add/remove rows and columns until it is exactly filled
@@ -238,5 +240,22 @@ void WINDOWS_TABLE::LockTargetCell(CELL::CELL_POSITION pos) noexcept { if (posTa
 void WINDOWS_TABLE::ReleaseTargetCell() noexcept { posTargetCell = CELL::CELL_POSITION{ }; }
 
 CELL::CELL_POSITION WINDOWS_TABLE::TargetCellGet() const noexcept { return posTargetCell; }
+
+void WINDOWS_TABLE::Undo() const noexcept {
+	if (undoStack.empty()) { return; }
+	auto& cell = undoStack.back().first;
+	auto pos = undoStack.back().second->GetPosition();
+	CELL::cell_factory.RecreateCell(cell, pos);			// Null cells need their position
+	redoStack.push_back(undoStack.back());
+	undoStack.pop_back();
+}
+
+void WINDOWS_TABLE::Redo() const noexcept {
+	if (redoStack.empty()) { return; }
+	auto cell = redoStack.back().second;
+	CELL::cell_factory.RecreateCell(cell, cell->GetPosition());
+	undoStack.push_back(redoStack.back());
+	redoStack.pop_back();
+}
 
 #endif // WIN32
