@@ -1,10 +1,18 @@
 /*///////////////////////////////////////////////////////////////////////////////////////////////
-// I am presently working on learning the Gang of Four design principles for Object-Oriented code.
-// To practice these principles, I have created a spreadsheet application.
 // Below is a header file defining cells in the spreadsheet.
 // Inheritance allows polymorphism of cells all held in the same container.
 // A factory function is used to create new cells based upon the user input string.
-// The end goal is to create clear, flexible code open to further extention.
+// Derived classes have read-only access to raw cell content.
+// Any change in raw content should create/initialize a new CELL through the factory funciton.
+// This ensures encapsulation so that client does not mismanage cell-type changes.
+//
+// The optimal choice of container for both CELL and subscription data is an open question.
+// Each choice offers different tradeoffs of time/space usage and may require benchmarking to decide.
+// First used was an ordered map, which could skip empty cells and offered decent operation speed O( log(n) ).
+// Next, an unordered map (hash table) was used to get constant time O(1) expected operation speed.
+// Also, a 2-D array could be used to get O(1) speed plus cache localization at the cost of many empty slots.
+// CELL_POSITION defines it's own operator< and operator== for use in map sorting as well as a hash function.
+// The choice of column sorting preempting row sorting is arbitrary. Either way is fine so long as it is consistent.
 *////////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifndef CELL_CLASS_H
@@ -17,8 +25,8 @@
 class CELL {
 public:
 	struct CELL_POSITION {
-		unsigned int row{ 0 };
 		unsigned int column{ 0 };
+		unsigned int row{ 0 };
 	};
 
 	struct CELL_HASH {
@@ -68,15 +76,8 @@ private:
 	// An "Observer" pattern is used to notify relevant cells when changes occur.
 	// Changes may cascade, so notifications need to handle that effectively.
 	// Stores a set of observers for each subject.
-	//static std::map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>> subscriptionMap;		// <Subject, (set of) Observers>
-	static std::unordered_map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>, CELL_HASH> subscriptionMap;
-
-	// Map holds all non-null cells.
-	// The use of an associative container rather than a sequential container obviates the need for filler cells in empty positions.
-	// CELL_POSITION defines it's own operator< and operator== for use in map sorting.
-	// The choice of column sorting preempting row sorting is arbitrary. Either way is fine so long as it is consistent.
-	// static std::map<CELL::CELL_POSITION, std::shared_ptr<CELL>> cellMap;
-	static std::unordered_map<CELL::CELL_POSITION, std::shared_ptr<CELL>, CELL_HASH> cellMap;	// Consider hash map as an alternative
+	static std::unordered_map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>, CELL_HASH> subscriptionMap;	// <Subject, (set of) Observers>
+	static std::unordered_map<CELL::CELL_POSITION, std::shared_ptr<CELL>, CELL_HASH> cellMap;					// Cell data
 	static std::mutex lkSubMap, lkCellMap;
 public:
 	static CELL_FACTORY cell_factory;
@@ -96,9 +97,6 @@ protected:
 	void UnsubscribeFromCell(CELL_POSITION) const;
 	static void UnsubscribeFromCell(CELL_POSITION, CELL_POSITION);
 
-	// Sub-classes have read-only access to raw cell content.
-	// Any change in raw content should create/initialize a new CELL through the factory funciton.
-	// This ensures encapsulation so that client does not mismanage cell-type changes.
 	std::string rawReader() const { return rawContent; }
 public:
 	virtual ~CELL() {}
@@ -132,9 +130,7 @@ inline bool operator!= (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITIO
 // The CELL then searches through the deconstructed subscriptionMap to remove itself.
 // This causes an internal noexcept function to throw since it is traversing a tree that is no longer in a valid state.
 inline std::unordered_map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>, CELL::CELL_HASH> CELL::subscriptionMap{ };	// <Subject, Observers>
-inline std::unordered_map<CELL::CELL_POSITION, std::shared_ptr<CELL>, CELL::CELL_HASH> CELL::cellMap{ };						// Stores all CELLs
-// std::map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>> CELL::subscriptionMap{ };		// <Subject, Observers>
-// std::map<CELL::CELL_POSITION, shared_ptr<CELL>> CELL::cellMap{ };							// Stores all CELLs
+inline std::unordered_map<CELL::CELL_POSITION, std::shared_ptr<CELL>, CELL::CELL_HASH> CELL::cellMap{ };					// Stores all CELLs
 inline std::mutex CELL::lkSubMap{ }, CELL::lkCellMap{ };
 
 // A cell that is simply raw text merely outputs its text.
@@ -179,6 +175,7 @@ public:
 // Each function must have the same call signature to fit in the same pointer object (taking a vector of ARGUMENTS and storing a double).
 // The sub-classing option is used here to comport with the broader goal of demonstrating established Object-oriented design patterns.
 // This alternate strategy is shown in comments for completeness.
+// Functions use lazy evaluation and support parallel evaluation.
 class FUNCTION_CELL : public NUMERICAL_CELL {
 public:
 	void InitializeCell() override;

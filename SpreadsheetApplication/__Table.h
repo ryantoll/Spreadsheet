@@ -49,7 +49,7 @@ public:
 // Windows-specific code is segmented with a preprocessor command
 // Code for the appropriate system can be selected by this means
 #ifdef _WINDOWS
-inline HWND hTable;
+inline HWND hTable, h_Text_Edit_Bar;
 inline WNDPROC EditHandler;
 LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK EntryBarWindowProc(HWND, UINT, WPARAM, LPARAM);
@@ -66,7 +66,7 @@ protected:
 	int height{ 25 };
 	int x0{ 0 };
 	int y0{ 25 };
-	HWND hParent, h_Text_Edit_Bar;
+	HWND hParent;
 	CELL::CELL_POSITION origin{ 0, 0 };		// Origin is the "off-the-begining" cell to the upper-left of the upper-left cell
 	CELL::CELL_POSITION posTargetCell{ };	// Tracks position of cell currently associated with upper edit box, may be blank
 	CELL::CELL_POSITION mostRecentCell{ };	// Tracks position of most recently selected cell for either target selection or new cell creation

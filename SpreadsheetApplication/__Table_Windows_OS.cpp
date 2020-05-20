@@ -31,23 +31,23 @@ void WINDOWS_TABLE::InitializeTable() noexcept {
 	Resize();		// Resize command will fill out the space with cell windows
 	
 	// Insert cells upon creation (Optional)
-	CELL::cell_factory.NewCell({ 1, 1 }, "2"s);
-	CELL::cell_factory.NewCell({ 1, 2 }, "4"s);
-	CELL::cell_factory.NewCell({ 1, 3 }, "9"s);
-	CELL::cell_factory.NewCell({ 1, 4 }, "SUM->"s);
-	CELL::cell_factory.NewCell({ 1, 5 }, "=SUM( &R1C1, &R1C2, &R1C3 )"s);
+	CreateNewCell({ 1, 1 }, "2"s);
+	CreateNewCell({ 2, 1 }, "4"s);
+	CreateNewCell({ 3, 1 }, "9"s);
+	CreateNewCell({ 4, 1 }, "SUM->"s);
+	CreateNewCell({ 5, 1 }, "=SUM( &R1C1, &R1C2, &R1C3 )"s);
 
-	CELL::cell_factory.NewCell({ 2, 1 }, "=RECIPROCAL( &R1C1 )"s);
-	CELL::cell_factory.NewCell({ 2, 2 }, "=INVERSE( &R1C2 )"s);
-	CELL::cell_factory.NewCell({ 2, 3 }, "=&R1C3"s);
-	CELL::cell_factory.NewCell({ 2, 4 }, "SUM->"s);
-	CELL::cell_factory.NewCell({ 2, 5 }, "=SUM( &R2C1, &R2C2, &R2C3 )"s);
+	CreateNewCell({ 1, 2 }, "=RECIPROCAL( &R1C1 )"s);
+	CreateNewCell({ 2, 2 }, "=INVERSE( &R1C2 )"s);
+	CreateNewCell({ 3, 2 }, "=&R1C3"s);
+	CreateNewCell({ 4, 2 }, "SUM->"s);
+	CreateNewCell({ 5, 2 }, "=SUM( &R2C1, &R2C2, &R2C3 )"s);
 
-	CELL::cell_factory.NewCell({ 3, 1 }, "&R2C1"s);
-	CELL::cell_factory.NewCell({ 3, 2 }, "&R2C2"s);
-	CELL::cell_factory.NewCell({ 3, 3 }, "&R2C3"s);
-	CELL::cell_factory.NewCell({ 3, 4 }, "AVERAGE->"s);
-	CELL::cell_factory.NewCell({ 3, 5 }, "=AVERAGE( &R3C1, &R3C2, &R3C3 )"s);
+	CreateNewCell({ 1, 3 }, "&R2C1"s);
+	CreateNewCell({ 2, 3 }, "&R2C2"s);
+	CreateNewCell({ 3, 3 }, "&R2C3"s);
+	CreateNewCell({ 4, 3 }, "AVERAGE->"s);
+	CreateNewCell({ 5, 3 }, "=AVERAGE( &R3C1, &R3C2, &R3C3 )"s);
 
 	auto startingCell = WINDOWS_TABLE::CELL_ID{ CELL::CELL_POSITION{ 1, 1 } };
 	SetFocus(startingCell);	// Pick an arbitrary starting cell to avoid error where a cell is created with no position by clicking straight into upper entry bar.
@@ -57,7 +57,9 @@ void WINDOWS_TABLE::InitializeTable() noexcept {
 CELL::CELL_PROXY WINDOWS_TABLE::CreateNewCell(CELL::CELL_POSITION pos, std::string rawInput) const noexcept {
 	auto oldCell = CELL::GetCellProxy(pos);
 	auto nCell = CELL::cell_factory.NewCell(pos, rawInput);
-	if (nCell) { undoStack.emplace_back(oldCell, nCell); redoStack.clear(); }
+	auto oldText = string{ };
+	!oldCell ? oldText = ""s : oldText = oldCell->DisplayRawContent();
+	if (nCell && rawInput != oldText) { undoStack.emplace_back(oldCell, nCell); redoStack.clear(); }
 	return nCell;
 }
 
@@ -146,10 +148,10 @@ void WINDOWS_TABLE::Resize() noexcept {
 // Update cell text.
 void WINDOWS_TABLE::UpdateCell(CELL::CELL_POSITION position) const noexcept {
 	auto cell = CELL::GetCellProxy(position);
-	if (!cell) { return; }	// Return if no cell data exits
 	auto id = WINDOWS_TABLE::CELL_ID{ position };
-	auto out = string_to_wstring(cell->DisplayOutput());
-	SetWindowText(id, out.c_str());
+	auto text = wstring{ };
+	!cell ? text = L""s : text = string_to_wstring(cell->DisplayOutput());
+	SetWindowText(id, text.c_str());
 }
 
 // Redraw table.
@@ -164,33 +166,28 @@ void WINDOWS_TABLE::Redraw() const noexcept {
 
 void WINDOWS_TABLE::FocusCell(CELL::CELL_POSITION pos) noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ pos };
-	auto posCreateCell = CELL::CELL_POSITION{ };
+	auto cell = CELL::GetCellProxy(pos);
 	auto text = wstring{ };
-	if (pos == posTargetCell) {
-		ReleaseTargetCell();												// Release focus when selecting straight to target to open it up for new target selection.
-		posCreateCell = pos;												// Create new cell at current position
-		text = Edit_Box_to_Wstring(h_Text_Edit_Bar);						// Text for cell creation comes from upper entry bar
-		mostRecentCell = CELL::CELL_POSITION{ };							// This should not be queued for creation nor for targetting until selected again
-		SendMessage(id, WM_KEYDOWN, static_cast<WPARAM>(VK_RETURN), NULL);	// Send Return-key message to self to move down to next cell
+	mostRecentCell = pos;
+	if (pos == posTargetCell) {							// If returning focus from upper-entry box...
+		ReleaseTargetCell();							// Release focus when selecting straight to target to open it up for new target selection.
+		text = Edit_Box_to_Wstring(h_Text_Edit_Bar);	// Text for cell creation comes from upper entry bar
+		CreateNewCell(pos, wstring_to_string(text));	// Create new cell
+		SetFocus(id);									// Set focus to self to avoid odd errors with changing focus to next cell
 	}
-	else {
-		auto cell = CELL::GetCellProxy(pos);
-		if (cell) {
-			text = string_to_wstring(cell->DisplayRawContent());
-			SetWindowText(id, text.c_str());					// Show raw content rather than display value when cell is selected for editing.
-			SendMessage(id, EM_SETSEL, 0, -1);					// Select all within cell.
-			SetWindowText(h_Text_Edit_Bar, text.c_str());		// Otherwise, display raw content in entry bar.
-		}
-		else { SetWindowText(h_Text_Edit_Bar, L""); }			// Clear upper entry bar if selecting an empty cell
-		posCreateCell = mostRecentCell;							// Create cell at prior location
-		id = WINDOWS_TABLE::CELL_ID{ posCreateCell };
-		text = Edit_Box_to_Wstring(id);							// Use text stored in prior cell
-		mostRecentCell = pos;									// This is now the most recent cell
+	else if (cell) {										// If cell exists
+		text = string_to_wstring(cell->DisplayRawContent());// Grab display text of cell
+		SetWindowText(id, text.c_str());					// Show raw content rather than display value when cell is selected for editing.
+		SendMessage(id, EM_SETSEL, 0, -1);					// Select all within cell.
+		SetWindowText(h_Text_Edit_Bar, text.c_str());		// Otherwise, display raw content in entry bar.
 	}
-	CreateNewCell(posCreateCell, wstring_to_string(text));		// Create new cell
 }
 
-void WINDOWS_TABLE::UnfocusCell(CELL::CELL_POSITION pos) noexcept { }
+void WINDOWS_TABLE::UnfocusCell(CELL::CELL_POSITION pos) noexcept {
+	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	auto text = Edit_Box_to_Wstring(id);
+	CreateNewCell(pos, wstring_to_string(text));	// Create new cell
+}
 
 void WINDOWS_TABLE::FocusEntryBox() noexcept {
 	if (posTargetCell != CELL::CELL_POSITION{ }) { return; }	// If there is a target, don't reset text

@@ -61,10 +61,9 @@ CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const strin
 }
 
 void CELL::CELL_FACTORY::RecreateCell(CELL_PROXY& cell, CELL_POSITION pos) {
-	// if (!cell) { cell.cell = make_shared<TEXT_CELL>(); }
 	{
-		auto lk = lock_guard<mutex>{ lkCellMap };		// Lock map only for write operation.
-		if (!cell) { cellMap.erase(pos); }
+		auto lk = lock_guard<mutex>{ lkCellMap };	// Lock map only for write operation.
+		if (!cell) { cellMap.erase(pos); }			// Cell stays subscribed.
 		else { cellMap[pos] = cell.cell; }
 	}
 	NotifyAll(pos);
@@ -81,7 +80,11 @@ void CELL::CELL_FACTORY::NotifyAll(CELL_POSITION subject) {
 		if (it == subscriptionMap.end()) { return; }
 		notificationSet = it->second;					// Get local copy of notification set so that lock can be released before updating cells, which will require it's own lock downstream
 	}
-	for (auto observer: notificationSet) { GetCell(observer)->UpdateCell(); }
+	for (auto observer: notificationSet) { 
+		auto oCell = GetCell(observer);
+		if (!oCell) { continue; }
+		oCell->UpdateCell();
+	}
 }
 
 // Move a cell to a new location, updating its key as well to reflect the change.
@@ -103,7 +106,7 @@ void CELL::SubscribeToCell(CELL_POSITION subject) const {
 // Use static overload below
 void CELL::UnsubscribeFromCell(CELL_POSITION subject) const { UnsubscribeFromCell(subject, position); }
 
-// Remove observer link
+// Remove observer link (Subject, Observer)
 void CELL::UnsubscribeFromCell(CELL_POSITION subject, CELL_POSITION observer) {
 	auto lk = lock_guard<mutex>{ lkSubMap };
 	auto itSubject = subscriptionMap.find(subject);
