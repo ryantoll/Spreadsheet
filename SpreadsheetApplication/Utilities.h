@@ -40,10 +40,6 @@ namespace RYANS_UTILITIES {
 	inline void Append_String_to_Edit_Box(HWND h, const std::string& out) { Append_Wstring_to_Edit_Box(h, string_to_wstring(out)); }
 #endif // _WINDOWS
 
-#ifndef min					// Borrowed from Windows headers. Define here if undefined.
-#define min(a,b)            (((a) < (b)) ? (a) : (b))
-#endif
-
 	// Tool used for parsing text.
 	// Tests for enclosing chars and clears them out. Returns bool indicating success/failure.
 	inline bool ClearEnclosingChars(const char c1, const char c2, std::string& s) {
