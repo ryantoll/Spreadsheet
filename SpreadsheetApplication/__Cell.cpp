@@ -6,7 +6,7 @@
 using namespace std;
 using namespace RYANS_UTILITIES;
 
-CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const string& contents) {
+CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(const CELL_POSITION position, const string& contents) noexcept {
 	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
 	// but also prevents accidental errors in failing to specify a location.
 	// R == 0 || C == 0 almost certainly indicates a failure to specify one or both arguments.
@@ -60,7 +60,7 @@ CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(CELL_POSITION position, const strin
 	return GetCellProxy(position);			// Return stored cell so that failed numerical cells return the stored fallback text cell rather than the original failed numerical cell.
 }
 
-void CELL::CELL_FACTORY::RecreateCell(CELL_PROXY& cell, CELL_POSITION pos) {
+void CELL::CELL_FACTORY::RecreateCell(const CELL_PROXY& cell, const CELL_POSITION pos) noexcept {
 	{
 		auto lk = lock_guard<mutex>{ lkCellMap };	// Lock map only for write operation.
 		if (!cell) { cellMap.erase(pos); }			// Cell stays subscribed.
@@ -72,7 +72,7 @@ void CELL::CELL_FACTORY::RecreateCell(CELL_PROXY& cell, CELL_POSITION pos) {
 
 // Notifies observing CELLs of change in underlying data.
 // Each CELL is responsible for checking the new data.
-void CELL::CELL_FACTORY::NotifyAll(CELL_POSITION subject) {
+void CELL::CELL_FACTORY::NotifyAll(const CELL_POSITION subject) noexcept {
 	auto notificationSet = std::set<CELL_POSITION>{ };
 	{
 		auto lk = lock_guard<mutex>{ lkSubMap };		// Lock only to get local copy of notification set
@@ -88,7 +88,7 @@ void CELL::CELL_FACTORY::NotifyAll(CELL_POSITION subject) {
 }
 
 // Move a cell to a new location, updating its key as well to reflect the change.
-bool CELL::MoveCell(CELL_POSITION newPosition) {
+bool CELL::MoveCell(const CELL_POSITION newPosition) noexcept {
 	if (cellMap.find(newPosition) != cellMap.end()) { return false; }
 	cellMap[newPosition] = cellMap[position];
 	cellMap.erase(position);
@@ -97,37 +97,37 @@ bool CELL::MoveCell(CELL_POSITION newPosition) {
 }
 
 // Subscribe to notification of changes in target CELL.
-void CELL::SubscribeToCell(CELL_POSITION subject) const { 
+void CELL::SubscribeToCell(const CELL_POSITION subject) const noexcept { 
 	auto lk = lock_guard<mutex>{ lkSubMap };
 	auto& observerSet = subscriptionMap[subject]; 
 	observerSet.insert(position);
 }
 
 // Use static overload below
-void CELL::UnsubscribeFromCell(CELL_POSITION subject) const { UnsubscribeFromCell(subject, position); }
+void CELL::UnsubscribeFromCell(const CELL_POSITION subject) const noexcept { UnsubscribeFromCell(subject, position); }
 
 // Remove observer link (Subject, Observer)
-void CELL::UnsubscribeFromCell(CELL_POSITION subject, CELL_POSITION observer) {
+void CELL::UnsubscribeFromCell(const CELL_POSITION subject, const CELL_POSITION observer) noexcept {
 	auto lk = lock_guard<mutex>{ lkSubMap };
 	auto itSubject = subscriptionMap.find(subject);
 	if (itSubject == subscriptionMap.end()) { return; }
 	(*itSubject).second.erase(observer);
 }
 
-std::shared_ptr<CELL> CELL::GetCell(CELL::CELL_POSITION pos) {
+std::shared_ptr<CELL> CELL::CELL_FACTORY::GetCell(const CELL::CELL_POSITION pos) noexcept {
 	auto lk = lock_guard<mutex>{ lkCellMap };
 	auto it = cellMap.find(pos);
 	return it != cellMap.end() ? it->second : nullptr;
 }
 
-CELL::CELL_PROXY CELL::GetCellProxy(CELL::CELL_POSITION pos) { return CELL_PROXY{ GetCell(pos) }; }
+CELL::CELL_PROXY CELL::CELL_FACTORY::GetCellProxy(const CELL::CELL_POSITION pos) noexcept { return CELL_PROXY{ GetCell(pos) }; }
 
-void CELL::UpdateCell() { 
+void CELL::UpdateCell() noexcept {
 	table->UpdateCell(position); 		// Call update cell on GUI base pointer.
 	CELL_FACTORY::NotifyAll(position);	// Cascade notification
 }
 
-void TEXT_CELL::InitializeCell() {
+void TEXT_CELL::InitializeCell() noexcept {
 	CELL::InitializeCell();
 	if (displayValue[0] == L'\'') { displayValue.erase(0, 1); }		// Omit preceeding ' if it was added to enforce a text cell
 }
@@ -154,8 +154,8 @@ CELL::CELL_POSITION ReferenceStringToCellPosition(const string& refString) {
 }
 
 // Subscribe to updates on referenced cell once it's position is determined
-void REFERENCE_CELL::InitializeCell() {
-	referencePosition = ReferenceStringToCellPosition(rawReader());
+void REFERENCE_CELL::InitializeCell() noexcept {
+	referencePosition = ReferenceStringToCellPosition(GetRawContent());
 	SubscribeToCell(referencePosition);
 }
 
@@ -163,12 +163,12 @@ void REFERENCE_CELL::InitializeCell() {
 // Any cell that seems like a number, but cannot be converted to such defaults to text.
 // Create a new cell at the same position with a prepended text-enforcement character.
 // Manually check for alpha characters since std::stod() is more forgiving than is appropriate for this situation.
-void NUMERICAL_CELL::InitializeCell() {
+void NUMERICAL_CELL::InitializeCell() noexcept {
 	try { 
-		for (auto c : rawReader()) { if (!isdigit(c) && c != '.' && c != '-') { throw invalid_argument("Error parsing input text. \nText could not be interpreted as a number"); } }
-		storedValue = stod(rawReader());
+		for (auto c : GetRawContent()) { if (!isdigit(c) && c != '.' && c != '-') { throw invalid_argument("Error parsing input text. \nText could not be interpreted as a number"); } }
+		storedValue = stod(GetRawContent());
 	}
-	catch (...) { CELL::cell_factory.NewCell(position, "'" + rawReader()); }
+	catch (...) { CELL::CELL_FACTORY::NewCell(position, "'" + GetRawContent()); }
 }
 
 // I'm not sure how best to implement this mapping of text to function objects.
@@ -234,7 +234,7 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& i
 	else if (inputText[0] == '&') { /*Convert reference*/ 
 		auto pos = ReferenceStringToCellPosition(inputText);
 		SubscribeToCell(pos);
-		if (!CELL::GetCellProxy(pos)) { error = true; }		// Dangling reference: set error flag. Still need to construct reference argument for future use.
+		if (!CELL_FACTORY::GetCellProxy(pos)) { error = true; }		// Dangling reference: set error flag. Still need to construct reference argument for future use.
 		return make_shared<FUNCTION_CELL::REFERENCE_ARGUMENT>(*this, pos);
 	}
 	else if (isdigit(inputText[0]) || inputText[0] == '.' || inputText[0] == '-') { /*Convert to value*/
@@ -247,8 +247,8 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& i
 }
 
 // Parse function text into actual functions.
-void FUNCTION_CELL::InitializeCell() {
-	auto inputText = rawReader().substr(1);
+void FUNCTION_CELL::InitializeCell() noexcept {
+	auto inputText = GetRawContent().substr(1);
 	auto vArgs = vector<shared_ptr<ARGUMENT>>{ };
 	vArgs.push_back(ParseFunctionString(inputText));	// Recursively parse input string
 	func = make_shared<FUNCTION>( std::move(vArgs) );
@@ -256,7 +256,7 @@ void FUNCTION_CELL::InitializeCell() {
 }
 
 // Recalculate function when an underlying reference argument is changed.
-void FUNCTION_CELL::UpdateCell() {
+void FUNCTION_CELL::UpdateCell() noexcept {
 	displayValue = "";
 	error = false;		// Reset error flag in case there was a prior error
 	func->UpdateArgument();
@@ -308,10 +308,10 @@ FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell,
 // Look up referenced value and store in the associated future.
 // Store an exception if there's a dangling or circular reference.
 bool FUNCTION_CELL::REFERENCE_ARGUMENT::UpdateArgument() noexcept {
-	auto refCell = GetCellProxy(referencePosition);
+	auto refCell = CELL_FACTORY::GetCellProxy(referencePosition);
 	try {
 		if (!refCell || refCell->GetPosition() == parentPosition) { throw invalid_argument{ "Reference Error" }; }	// Check that value exists and is not circular reference
-		auto nValue = stod(refCell->DisplayOutput());
+		auto nValue = stod(refCell->GetRawContent());
 		SetValue(nValue);	// Stored value may need to be tracked separately from display value eventually
 		nValue == storedArgument ? stillValid = true : stillValid = false;
 	}

@@ -56,12 +56,12 @@ void WINDOWS_TABLE::InitializeTable() noexcept {
 }
 
 // Logic for Cell Windows to construct and display the appropriate CELL based upon user input string
-CELL::CELL_PROXY WINDOWS_TABLE::CreateNewCell(CELL::CELL_POSITION pos, const string& rawInput) const noexcept {
-	auto oldCell = CELL::GetCellProxy(pos);
-	auto nCell = CELL::cell_factory.NewCell(pos, rawInput);
+CELL::CELL_PROXY WINDOWS_TABLE::CreateNewCell(const CELL::CELL_POSITION pos, const string& rawInput) const noexcept {
+	auto oldCell = CELL::CELL_FACTORY::GetCellProxy(pos);
+	auto nCell = CELL::CELL_FACTORY::NewCell(pos, rawInput);
 	auto oldText = string{ };
-	!oldCell ? oldText = ""s : oldText = oldCell->DisplayRawContent();
-	if (nCell && rawInput != oldText) { undoStack.emplace_back(oldCell, nCell); redoStack.clear(); }
+	!oldCell ? oldText = ""s : oldText = oldCell->GetRawContent();
+	if (rawInput != oldText) { undoStack.emplace_back(oldCell, nCell); redoStack.clear(); }
 	return nCell;
 }
 
@@ -148,11 +148,11 @@ void WINDOWS_TABLE::Resize() noexcept {
 }
 
 // Update cell text.
-void WINDOWS_TABLE::UpdateCell(CELL::CELL_POSITION position) const noexcept {
-	auto cell = CELL::GetCellProxy(position);
+void WINDOWS_TABLE::UpdateCell(const CELL::CELL_POSITION position) const noexcept {
+	auto cell = CELL::CELL_FACTORY::GetCellProxy(position);
 	auto id = WINDOWS_TABLE::CELL_ID{ position };
 	auto text = wstring{ };
-	!cell ? text = L""s : text = string_to_wstring(cell->DisplayOutput());
+	!cell ? text = L""s : text = string_to_wstring(cell->GetOutput());
 	SetWindowText(id, text.c_str());
 }
 
@@ -166,9 +166,9 @@ void WINDOWS_TABLE::Redraw() const noexcept {
 	}*/
 }
 
-void WINDOWS_TABLE::FocusCell(CELL::CELL_POSITION pos) const noexcept {
+void WINDOWS_TABLE::FocusCell(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ pos };
-	auto cell = CELL::GetCellProxy(pos);
+	auto cell = CELL::CELL_FACTORY::GetCellProxy(pos);
 	auto text = wstring{ };
 	mostRecentCell = pos;
 	if (pos == posTargetCell) {							// If returning focus from upper-entry box...
@@ -178,14 +178,14 @@ void WINDOWS_TABLE::FocusCell(CELL::CELL_POSITION pos) const noexcept {
 		SetFocus(id);									// Set focus to self to avoid odd errors with changing focus to next cell
 	}
 	else if (cell) {										// If cell exists
-		text = string_to_wstring(cell->DisplayRawContent());// Grab display text of cell
+		text = string_to_wstring(cell->GetRawContent());	// Grab display text of cell
 		SetWindowText(id, text.c_str());					// Show raw content rather than display value when cell is selected for editing.
 		SendMessage(id, EM_SETSEL, 0, -1);					// Select all within cell.
 		SetWindowText(h_Text_Edit_Bar, text.c_str());		// Otherwise, display raw content in entry bar.
 	}
 }
 
-void WINDOWS_TABLE::UnfocusCell(CELL::CELL_POSITION pos)  const noexcept {
+void WINDOWS_TABLE::UnfocusCell(const CELL::CELL_POSITION pos)  const noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ pos };
 	auto text = Edit_Box_to_Wstring(id);
 	CreateNewCell(pos, wstring_to_string(text));	// Create new cell
@@ -199,7 +199,7 @@ void WINDOWS_TABLE::FocusEntryBox() const noexcept {
 	SetWindowText(h_Text_Edit_Bar, text.c_str());				// Set text to that of target cell to continue editing
 }
 
-void WINDOWS_TABLE::UnfocusEntryBox(CELL::CELL_POSITION pos) const noexcept {
+void WINDOWS_TABLE::UnfocusEntryBox(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ pos };
 	if (posTargetCell != CELL::CELL_POSITION{ } && pos != posTargetCell) {
 		auto out = wstring{ L"&" };
@@ -210,31 +210,31 @@ void WINDOWS_TABLE::UnfocusEntryBox(CELL::CELL_POSITION pos) const noexcept {
 	}
 }
 
-void WINDOWS_TABLE::FocusUp1(CELL::CELL_POSITION pos) const noexcept {
+void WINDOWS_TABLE::FocusUp1(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ pos };
 	if (id.GetRow() == 1) { return; }			// Stop at bottom edge
 	SetFocus(id.DecrementRow());				// Decrement row and set focus to new cell
 }
 
-void WINDOWS_TABLE::FocusDown1(CELL::CELL_POSITION pos) const noexcept {
+void WINDOWS_TABLE::FocusDown1(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ pos };
 	if (id.GetRow() >= table->GetNumRows()) { /*winTable->origin.column++; winTable->Resize();*/ return; }		// Stop at top edge
 	SetFocus(id.IncrementRow());	// Increment row and set focus to new cell
 }
 
-void WINDOWS_TABLE::FocusRight1(CELL::CELL_POSITION pos) const noexcept {
+void WINDOWS_TABLE::FocusRight1(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ pos };
 	if (id.GetColumn() >= table->GetNumColumns()) { /*winTable->origin.column++; winTable->Resize();*/ return; }	// Stop at right edge
 	SetFocus(id.IncrementColumn());				// Increment column and set focus to new cell
 }
 
-void WINDOWS_TABLE::FocusLeft1(CELL::CELL_POSITION pos) const noexcept {
+void WINDOWS_TABLE::FocusLeft1(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ pos };
 	if (id.GetColumn() == 1) { return; }		// Stop at left edge
 	SetFocus(id.DecrementColumn());				// Decrement column and set focus to new cell
 }
 
-void WINDOWS_TABLE::LockTargetCell(CELL::CELL_POSITION pos) const noexcept { if (posTargetCell != CELL::CELL_POSITION{ }) { return; } posTargetCell = pos; }
+void WINDOWS_TABLE::LockTargetCell(const CELL::CELL_POSITION pos) const noexcept { if (posTargetCell != CELL::CELL_POSITION{ }) { return; } posTargetCell = pos; }
 
 void WINDOWS_TABLE::ReleaseTargetCell() const noexcept { posTargetCell = CELL::CELL_POSITION{ }; }
 
@@ -247,7 +247,7 @@ void WINDOWS_TABLE::Undo() const noexcept {
 	auto pos = CELL::CELL_POSITION{ };
 	if (cell) { pos = cell->GetPosition(); }
 	else { pos = otherCell->GetPosition(); }
-	CELL::cell_factory.RecreateCell(cell, pos);			// Null cells need their position
+	CELL::CELL_FACTORY::RecreateCell(cell, pos);			// Null cells need their position
 	redoStack.push_back(undoStack.back());
 	undoStack.pop_back();
 }
@@ -259,7 +259,7 @@ void WINDOWS_TABLE::Redo() const noexcept {
 	auto pos = CELL::CELL_POSITION{ };
 	if (cell) { pos = cell->GetPosition(); }
 	else { pos = otherCell->GetPosition(); }
-	CELL::cell_factory.RecreateCell(cell, pos);
+	CELL::CELL_FACTORY::RecreateCell(cell, pos);
 	undoStack.push_back(redoStack.back());
 	redoStack.pop_back();
 }

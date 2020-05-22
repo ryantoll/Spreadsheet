@@ -16,8 +16,8 @@
 using namespace std;
 
 constexpr auto innerCellWidth{ 10 };
-constexpr auto maxColumns{ 8 };
-constexpr auto maxRows{ 10 };
+constexpr auto numColumns{ 8 };
+constexpr auto numRows{ 10 };
 constexpr auto addExampleCells{ false };		// Add initial batch of example cells
 constexpr auto cellDiagnostics{ false };		// Track cell updates
 constexpr auto mainMenu = R"(
@@ -111,12 +111,12 @@ void CONSOLE_TABLE::InitializeTable() noexcept {
 void CONSOLE_TABLE::Redraw() const noexcept {
 	auto pos = CELL::CELL_POSITION{ };
 	auto output = string{ };
-	for (auto r = 1; r <= maxRows; r++) {
+	for (auto r = 1; r <= numRows; r++) {
 		pos.row = r;
-		for (auto c = 1; c <= maxColumns; c++) {
+		for (auto c = 1; c <= numColumns; c++) {
 			pos.column = c;
-			auto cell = CELL::GetCellProxy(pos);
-			cell ? output = cell->DisplayOutput() : output = "";
+			auto cell = CELL::CELL_FACTORY::GetCellProxy(pos);
+			cell ? output = cell->GetOutput() : output = "";
 			printf("[%*.*s]", innerCellWidth, innerCellWidth, output.c_str());
 		}
 		cout << endl;
@@ -126,37 +126,37 @@ void CONSOLE_TABLE::Redraw() const noexcept {
 void CONSOLE_TABLE::PrintCellList() const noexcept{
 	auto pos = CELL::CELL_POSITION{ };
 	auto output = string{ };
-	for (auto r = 1; r <= maxRows; r++) {
+	for (auto r = 1; r <= numRows; r++) {
 		pos.row = r;
 		cout << "Row " << r << " : " << endl;
-		for (auto c = 1; c <= maxColumns; c++) {
+		for (auto c = 1; c <= numColumns; c++) {
 			pos.column = c;
-			auto cell = CELL::GetCellProxy(pos);
+			auto cell = CELL::CELL_FACTORY::GetCellProxy(pos);
 			if (!cell) { continue; }
 			cout << "R" << pos.row << 'C' << pos.column << " -> ";
-			printf("%*.*s", innerCellWidth, innerCellWidth, cell->DisplayOutput().c_str());
-			cout << "   " << cell->DisplayRawContent() << endl;
+			printf("%*.*s", innerCellWidth, innerCellWidth, cell->GetOutput().c_str());
+			cout << "   " << cell->GetRawContent() << endl;
 		}
 		cout << endl;
 	}
 }
 
-void CONSOLE_TABLE::UpdateCell(CELL::CELL_POSITION pos) const noexcept {
+void CONSOLE_TABLE::UpdateCell(const CELL::CELL_POSITION pos) const noexcept {
 	if (!cellDiagnostics) { return; }
-	auto cell = CELL::GetCellProxy(pos);
+	auto cell = CELL::CELL_FACTORY::GetCellProxy(pos);
 	if (!cell) { return; }
-	cout << "Update Cell: R" << pos.row << 'C' << pos.column << " -> " << cell->DisplayOutput()
-		<< '\t' << cell->DisplayRawContent() << endl;
+	cout << "Update Cell: R" << pos.row << 'C' << pos.column << " -> " << cell->GetOutput()
+		<< '\t' << cell->GetRawContent() << endl;
 }
 
 CELL::CELL_PROXY CONSOLE_TABLE::CreateNewCell() const noexcept {
 	auto input = string{ };
 	auto pos = RequestCellPos();
-	auto current = CELL::GetCellProxy(pos);
+	auto current = CELL::CELL_FACTORY::GetCellProxy(pos);
 	auto display = string{ };	auto raw = string{ };
 	if (current) {
-		display = current->DisplayOutput();
-		raw = current->DisplayRawContent();
+		display = current->GetOutput();
+		raw = current->GetRawContent();
 	}
 	cout << "Display: " << display << endl;
 	cout << "Raw text: " << raw << endl;
@@ -168,11 +168,11 @@ CELL::CELL_PROXY CONSOLE_TABLE::CreateNewCell() const noexcept {
 	return cell;
 }
 
-CELL::CELL_PROXY CONSOLE_TABLE::CreateNewCell(CELL::CELL_POSITION pos, const string& rawInput) const noexcept {
-	auto oldCell = CELL::GetCellProxy(pos);
-	auto nCell = CELL::cell_factory.NewCell(pos, rawInput);
+CELL::CELL_PROXY CONSOLE_TABLE::CreateNewCell(const CELL::CELL_POSITION pos, const string& rawInput) const noexcept {
+	auto oldCell = CELL::CELL_FACTORY::GetCellProxy(pos);
+	auto nCell = CELL::CELL_FACTORY::NewCell(pos, rawInput);
 	auto oldText = string{ };
-	!oldCell ? oldText = ""s : oldText = oldCell->DisplayRawContent();
+	!oldCell ? oldText = ""s : oldText = oldCell->GetRawContent();
 	if (rawInput != oldText) { undoStack.emplace_back(oldCell, nCell); redoStack.clear(); }
 	return nCell;
 }
@@ -186,11 +186,11 @@ CELL::CELL_POSITION CONSOLE_TABLE::RequestCellPos() const noexcept {
 	cin >> input;
 	try { 
 	pos.row = stoi(input);
-	if (pos.row > maxRows || pos.row < 1) { throw exception{"Invalid Input"}; }
+	if (pos.row > numRows || pos.row < 1) { throw exception{"Invalid Input"}; }
 	cout << "C: ";
 	cin >> input;
 	pos.column = stoi(input);
-	if (pos.column > maxColumns || pos.column < 1) { throw exception{ "Invalid Input" }; }
+	if (pos.column > numColumns || pos.column < 1) { throw exception{ "Invalid Input" }; }
 	}
 	catch (...) { cout << "Invalid Input" << endl; pos = RequestCellPos(); }
 	return pos;
@@ -203,7 +203,7 @@ void CONSOLE_TABLE::Undo() const noexcept {
 	auto pos = CELL::CELL_POSITION{ };
 	if (cell) { pos = cell->GetPosition(); }
 	else { pos = otherCell->GetPosition(); }
-	CELL::cell_factory.RecreateCell(cell, pos);			// Null cells need their position
+	CELL::CELL_FACTORY::RecreateCell(cell, pos);			// Null cells need their position
 	redoStack.push_back(undoStack.back());
 	undoStack.pop_back();
 }
@@ -215,7 +215,7 @@ void CONSOLE_TABLE::Redo() const noexcept {
 	auto pos = CELL::CELL_POSITION{ };
 	if (cell) { pos = cell->GetPosition(); }
 	else { pos = otherCell->GetPosition(); }
-	CELL::cell_factory.RecreateCell(cell, pos);
+	CELL::CELL_FACTORY::RecreateCell(cell, pos);
 	undoStack.push_back(redoStack.back());
 	redoStack.pop_back();
 }

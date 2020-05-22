@@ -19,6 +19,8 @@
 #define CELL_CLASS_H
 
 #include "stdafx.h"
+constexpr auto MaxRow_{ UINT16_MAX };
+constexpr auto MaxColumn_{ UINT16_MAX };
 
 // Base class for all cells.
 // It stores the raw input string, a display value of that string, and returns the protected display value.
@@ -31,9 +33,9 @@ public:
 
 	struct CELL_HASH {
 		std::size_t operator() (CELL::CELL_POSITION const& pos) const noexcept {
-			auto x = unsigned long long{ 0 };
+			auto x = unsigned long{ 0 };
 			x = x | pos.column;
-			x = x << 32;
+			x = x << 16;
 			x = x | pos.row;
 			return x;
 		}
@@ -49,63 +51,63 @@ public:
 		auto operator*() const noexcept { return *cell; }
 	public:
 		CELL_PROXY() = default;
-		explicit CELL_PROXY(std::shared_ptr<CELL> target) : cell(target) { }
+		explicit CELL_PROXY(const std::shared_ptr<CELL> target) : cell(target) { }
 		~CELL_PROXY() = default;
 
 		// Copy & move
-		CELL_PROXY& operator=(std::shared_ptr<CELL> target) noexcept { cell = target; if (cell) { cell->UpdateCell(); } return *this; }
+		CELL_PROXY& operator=(const std::shared_ptr<CELL> target) noexcept { cell = target; if (cell) { cell->UpdateCell(); } return *this; }
 		CELL_PROXY(const CELL_PROXY& target) noexcept : cell(target.cell) { cell = target.cell; if (cell) { cell->UpdateCell(); } }
-		CELL_PROXY& operator=(std::shared_ptr<CELL>&& target) noexcept { cell = target; if (cell) { cell->UpdateCell(); } return *this; }
+		CELL_PROXY& operator=(const std::shared_ptr<CELL>&& target) noexcept { cell = target; if (cell) { cell->UpdateCell(); } return *this; }
 		CELL_PROXY(const CELL_PROXY&& target) noexcept : cell(target.cell) { cell = target.cell; if (cell) { cell->UpdateCell(); } }
 
 		auto operator->() const noexcept { return cell; }
 		explicit operator bool() const noexcept { return bool{ cell }; }
 	};
 
-private:
 	// Internal "Singleton" factory, which has implicit access to private and protected CELL members.
 	// NewCell() member function should be fixed for consistency with existing cell types.
 	// Factory should be open to extention to support new cell types, defaulting to NewCell().
 	class CELL_FACTORY {
 	public:
-		static CELL_PROXY NewCell(CELL_POSITION, const std::string&);
-		static void RecreateCell(CELL_PROXY&, CELL_POSITION);
-		static void NotifyAll(CELL_POSITION);
+		static CELL_PROXY NewCell(const CELL_POSITION, const std::string&) noexcept;
+		static void RecreateCell(const CELL_PROXY&, const CELL_POSITION) noexcept;
+		static CELL_PROXY GetCellProxy(const CELL::CELL_POSITION) noexcept;
+	protected:
+		static void NotifyAll(const CELL_POSITION) noexcept;
+		static std::shared_ptr<CELL> GetCell(const CELL::CELL_POSITION) noexcept;
+		friend class CELL;
 	};
 
+protected:
+	CELL() { }		// Hide constructor to force usage of factory function
+private:
+	CELL(const CELL_PROXY cell) { *this = *cell; CELL_FACTORY::NotifyAll(position); }		// Create cell from cell proxy and notify of change
+public:
+	virtual ~CELL() {}
+
+private:
+	std::string rawContent;
 	// An "Observer" pattern is used to notify relevant cells when changes occur.
 	// Changes may cascade, so notifications need to handle that effectively.
 	// Stores a set of observers for each subject.
 	static std::unordered_map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>, CELL_HASH> subscriptionMap;	// <Subject, (set of) Observers>
 	static std::unordered_map<CELL::CELL_POSITION, std::shared_ptr<CELL>, CELL_HASH> cellMap;					// Cell data
 	static std::mutex lkSubMap, lkCellMap;
-public:
-	static CELL_FACTORY cell_factory;
-	static CELL_PROXY GetCellProxy(CELL::CELL_POSITION);
-private:
-	CELL(CELL_PROXY cell) { *this = *cell; CELL_FACTORY::NotifyAll(position); }		// Create cell from cell proxy and notify of change
-
-	std::string rawContent;
-	static std::shared_ptr<CELL> GetCell(CELL::CELL_POSITION);
 protected:
-	CELL() {}
-	std::string displayValue;
 	bool error{ false };
+	std::string displayValue;
 	CELL_POSITION position;
 
-	void SubscribeToCell(CELL_POSITION subject) const;
-	void UnsubscribeFromCell(CELL_POSITION) const;
-	static void UnsubscribeFromCell(CELL_POSITION, CELL_POSITION);
-
-	std::string rawReader() const { return rawContent; }
+	void SubscribeToCell(const CELL_POSITION) const noexcept;
+	void UnsubscribeFromCell(const CELL_POSITION) const noexcept;
+	static void UnsubscribeFromCell(const CELL_POSITION, const CELL_POSITION) noexcept;
 public:
-	virtual ~CELL() {}
-	virtual std::string DisplayOutput() const { return error ? "!ERROR!" : displayValue; }
-	virtual std::string DisplayRawContent() const { return rawContent; }
-	virtual void InitializeCell() { displayValue = rawContent; }
-	virtual bool MoveCell(CELL_POSITION newPosition);
-	virtual void UpdateCell();		// Invoked whenever a cell needs to update it's output.
-	CELL_POSITION GetPosition() { return position; }
+	virtual std::string GetOutput() const noexcept { return error ? "!ERROR!" : displayValue; }
+	virtual std::string GetRawContent() const noexcept { return rawContent; }
+	virtual void InitializeCell() noexcept { displayValue = rawContent; }
+	virtual bool MoveCell(const CELL_POSITION) noexcept;
+	virtual void UpdateCell() noexcept;						// Tell a CELL to update its state.
+	CELL_POSITION GetPosition() const noexcept { return position; }
 };
 
 inline bool operator< (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION& rhs) {
@@ -137,22 +139,22 @@ inline std::mutex CELL::lkSubMap{ }, CELL::lkCellMap{ };
 class TEXT_CELL : public CELL {
 public:
 	virtual ~TEXT_CELL() {}
-	std::string DisplayOutput() const override { return displayValue; }		// Presumably this will never be in an error state.
-	void InitializeCell() override;
+	std::string GetOutput() const noexcept override { return displayValue; }		// Presumably this will never be in an error state.
+	void InitializeCell() noexcept override;
 };
 
 // A cell that refers to another cell by referring to it's position.
 class REFERENCE_CELL : public CELL {
 public:
 	virtual ~REFERENCE_CELL() { UnsubscribeFromCell(referencePosition); }
-	std::string DisplayOutput() const override {
+	std::string GetOutput() const noexcept override {
 		auto out = std::string{ };
-		auto cell = GetCellProxy(referencePosition);
+		auto cell = CELL_FACTORY::GetCellProxy(referencePosition);
 		if (!cell || cell->GetPosition() == position) { out = "!REF!"; }	// Dangling reference & reference to self both cause a reference error.
-		else { out = cell->DisplayOutput(); }
+		else { out = cell->GetOutput(); }
 		return error ? "!ERROR!" : out;
 	}
-	void InitializeCell() override;
+	void InitializeCell() noexcept override;
 protected:
 	CELL_POSITION referencePosition;
 };
@@ -164,8 +166,8 @@ protected:
 	//DISPLAY_PARAMETERS parameters;		// Add criteria for textual representation of value. (Ex. 1 vs. 1.0000 vs. $1.00, etc.)
 public:
 	virtual ~NUMERICAL_CELL() {}
-	std::string DisplayOutput() const override { return error ? "!ERROR!" : std::to_string(storedValue); }
-	void InitializeCell() override;
+	std::string GetOutput() const noexcept override { return error ? "!ERROR!" : std::to_string(storedValue); }
+	void InitializeCell() noexcept override;
 };
 
 // A cell that contains one or more FUNCTION(s).
@@ -178,8 +180,8 @@ public:
 // Functions use lazy evaluation and support parallel evaluation.
 class FUNCTION_CELL : public NUMERICAL_CELL {
 public:
-	void InitializeCell() override;
-	void UpdateCell() override;		// Need to add recalculate logic here for when reference cells update
+	void InitializeCell() noexcept override;
+	void UpdateCell() noexcept override;		// Need to add recalculate logic here for when reference cells update
 
 	struct ARGUMENT {
 		virtual bool UpdateArgument() noexcept { return true; }				// Logic to update argument when dependent cells update. May be trivial.

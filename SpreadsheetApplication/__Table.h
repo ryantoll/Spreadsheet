@@ -23,19 +23,19 @@ public:
 	virtual void Resize() noexcept = 0;
 	virtual void Redraw() const noexcept = 0;
 
-	virtual void FocusCell(CELL::CELL_POSITION) const noexcept = 0;
-	virtual void UnfocusCell(CELL::CELL_POSITION) const noexcept = 0;
+	virtual void FocusCell(const CELL::CELL_POSITION) const noexcept = 0;
+	virtual void UnfocusCell(const CELL::CELL_POSITION) const noexcept = 0;
 	virtual void FocusEntryBox() const noexcept = 0;
-	virtual void UnfocusEntryBox(CELL::CELL_POSITION) const noexcept = 0;
+	virtual void UnfocusEntryBox(const CELL::CELL_POSITION) const noexcept = 0;
 
-	virtual void FocusUp1(CELL::CELL_POSITION) const noexcept = 0;
-	virtual void FocusDown1(CELL::CELL_POSITION) const noexcept = 0;
-	virtual void FocusRight1(CELL::CELL_POSITION) const noexcept = 0;
-	virtual void FocusLeft1(CELL::CELL_POSITION) const noexcept = 0;
+	virtual void FocusUp1(const CELL::CELL_POSITION) const noexcept = 0;
+	virtual void FocusDown1(const CELL::CELL_POSITION) const noexcept = 0;
+	virtual void FocusRight1(const CELL::CELL_POSITION) const noexcept = 0;
+	virtual void FocusLeft1(const CELL::CELL_POSITION) const noexcept = 0;
 
-	virtual CELL::CELL_PROXY CreateNewCell(CELL::CELL_POSITION, const std::string&) const noexcept = 0;
-	virtual void UpdateCell(CELL::CELL_POSITION) const noexcept = 0;
-	virtual void LockTargetCell(CELL::CELL_POSITION) const noexcept = 0;
+	virtual CELL::CELL_PROXY CreateNewCell(const CELL::CELL_POSITION, const std::string&) const noexcept = 0;
+	virtual void UpdateCell(const CELL::CELL_POSITION) const noexcept = 0;
+	virtual void LockTargetCell(const CELL::CELL_POSITION) const noexcept = 0;
 	virtual void ReleaseTargetCell() const noexcept = 0;
 	virtual CELL::CELL_POSITION TargetCellGet() const noexcept = 0;
 
@@ -46,9 +46,6 @@ public:
 // Windows-specific code is segmented with a preprocessor command
 // Code for the appropriate system can be selected by this means
 #ifdef _WINDOWS
-constexpr auto MaxRow_{ UINT16_MAX };
-constexpr auto MaxColumn_{ UINT16_MAX };
-
 inline HWND hTable, h_Text_Edit_Bar;
 inline WNDPROC EditHandler;
 LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
@@ -86,19 +83,19 @@ public:
 	void Resize() noexcept override;
 	void Redraw() const noexcept override;
 
-	void FocusCell(CELL::CELL_POSITION) const noexcept override;
-	void UnfocusCell(CELL::CELL_POSITION) const noexcept override;
+	void FocusCell(const CELL::CELL_POSITION) const noexcept override;
+	void UnfocusCell(const CELL::CELL_POSITION) const noexcept override;
 	void FocusEntryBox() const noexcept override;
-	void UnfocusEntryBox(CELL::CELL_POSITION) const noexcept override;
+	void UnfocusEntryBox(const CELL::CELL_POSITION) const noexcept override;
 
-	void FocusUp1(CELL::CELL_POSITION) const noexcept override;
-	void FocusDown1(CELL::CELL_POSITION) const noexcept override;
-	void FocusRight1(CELL::CELL_POSITION) const noexcept override;
-	void FocusLeft1(CELL::CELL_POSITION) const noexcept override;
+	void FocusUp1(const CELL::CELL_POSITION) const noexcept override;
+	void FocusDown1(const CELL::CELL_POSITION) const noexcept override;
+	void FocusRight1(const CELL::CELL_POSITION) const noexcept override;
+	void FocusLeft1(const CELL::CELL_POSITION) const noexcept override;
 
-	CELL::CELL_PROXY CreateNewCell(CELL::CELL_POSITION, const std::string&) const noexcept;
-	void UpdateCell(CELL::CELL_POSITION) const noexcept override;
-	void LockTargetCell(CELL::CELL_POSITION) const noexcept override;
+	CELL::CELL_PROXY CreateNewCell(const CELL::CELL_POSITION, const std::string&) const noexcept;
+	void UpdateCell(const CELL::CELL_POSITION) const noexcept override;
+	void LockTargetCell(const CELL::CELL_POSITION) const noexcept override;
 	void ReleaseTargetCell() const noexcept override;
 	CELL::CELL_POSITION TargetCellGet() const noexcept override;
 
@@ -121,14 +118,14 @@ class WINDOWS_TABLE::CELL_ID {
 	}
 public:
 	CELL_ID() = default;
-	explicit CELL_ID(CELL::CELL_POSITION newPosition): position(newPosition) { Win_ID_From_Position(); }
-	explicit CELL_ID(unsigned long newWindowID): windowID(newWindowID) { Position_From_Win_ID(); }
-	explicit CELL_ID(HWND h) : windowID(GetDlgCtrlID(h)) { Position_From_Win_ID(); }
+	explicit CELL_ID(const CELL::CELL_POSITION newPosition): position(newPosition) { Win_ID_From_Position(); }
+	explicit CELL_ID(const unsigned long newWindowID): windowID(newWindowID) { Position_From_Win_ID(); }
+	explicit CELL_ID(const HWND h) : windowID(GetDlgCtrlID(h)) { Position_From_Win_ID(); }
 
-	void SetWindowID(int newID) noexcept { windowID = newID; Position_From_Win_ID(); }
+	void SetWindowID(const int newID) noexcept { windowID = newID; Position_From_Win_ID(); }
 	auto& SetRow(const unsigned int newRowIndex) noexcept { position.row = newRowIndex; Win_ID_From_Position(); return *this; }
 	auto& SetColumn(const unsigned int newColumnIndex) noexcept { position.column = newColumnIndex; Win_ID_From_Position(); return *this; }
-	auto& SetCellPosition(CELL::CELL_POSITION newPosition) noexcept { position = newPosition; Win_ID_From_Position(); return *this; }
+	auto& SetCellPosition(const CELL::CELL_POSITION newPosition) noexcept { position = newPosition; Win_ID_From_Position(); return *this; }
 
 	auto GetWindowID() const noexcept { return windowID; }
 	auto GetRow() const noexcept { return position.row; }
@@ -144,7 +141,7 @@ public:
 	operator HMENU() const noexcept { return reinterpret_cast<HMENU>(windowID); }	// Allow for implicit conversion to HMENU
 };
 
-#endif // WIN32
+#endif // _WINDOWS
 
 // Alternative table implementaiton for a pure console interface.
 // This is provided to show platform portability while minimizing the need for learning a new platform.
@@ -157,7 +154,7 @@ public:
 	void Undo() const noexcept override;
 	void Redo() const noexcept override;
 	CELL::CELL_PROXY CreateNewCell() const noexcept;
-	CELL::CELL_PROXY CreateNewCell(CELL::CELL_POSITION, const std::string&) const noexcept override;
+	CELL::CELL_PROXY CreateNewCell(const CELL::CELL_POSITION, const std::string&) const noexcept override;
 	void ClearCell(const CELL::CELL_POSITION) const noexcept;
 	CELL::CELL_POSITION RequestCellPos() const noexcept;
 protected:
@@ -172,17 +169,17 @@ protected:
 	void RemoveColumn() noexcept override { }
 	unsigned int GetNumColumns() const noexcept override { return 0; }
 	unsigned int GetNumRows() const noexcept override { return 0; }
-	void FocusCell(CELL::CELL_POSITION) const noexcept override { }
-	void UnfocusCell(CELL::CELL_POSITION) const noexcept override { }
+	void FocusCell(const CELL::CELL_POSITION) const noexcept override { }
+	void UnfocusCell(const CELL::CELL_POSITION) const noexcept override { }
 	void FocusEntryBox() const noexcept override { }
-	void UnfocusEntryBox(CELL::CELL_POSITION) const noexcept override { }
-	void FocusUp1(CELL::CELL_POSITION) const noexcept override { }
-	void FocusDown1(CELL::CELL_POSITION) const noexcept override { }
-	void FocusRight1(CELL::CELL_POSITION) const noexcept override { }
-	void FocusLeft1(CELL::CELL_POSITION) const noexcept override { }
-	void LockTargetCell(CELL::CELL_POSITION) const noexcept override { }
+	void UnfocusEntryBox(const CELL::CELL_POSITION) const noexcept override { }
+	void FocusUp1(const CELL::CELL_POSITION) const noexcept override { }
+	void FocusDown1(const CELL::CELL_POSITION) const noexcept override { }
+	void FocusRight1(const CELL::CELL_POSITION) const noexcept override { }
+	void FocusLeft1(const CELL::CELL_POSITION) const noexcept override { }
+	void LockTargetCell(const CELL::CELL_POSITION) const noexcept override { }
 	void ReleaseTargetCell() const noexcept override { }
-	void UpdateCell(CELL::CELL_POSITION) const noexcept override;
+	void UpdateCell(const CELL::CELL_POSITION) const noexcept override;
 	CELL::CELL_POSITION TargetCellGet() const noexcept override { return CELL::CELL_POSITION{ }; }
 };
 #endif // _CONSOLE
