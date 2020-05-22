@@ -64,48 +64,66 @@ public:
 		explicit operator bool() const noexcept { return bool{ cell }; }
 	};
 
+	// Allows client to store all CELL data and subscriptions, allowing any number of sets as needed.
+	// An "Observer" pattern is used to notify relevant cells when changes occur.
+	// Changes may cascade, so notifications need to handle that effectively.
+	// Stores a set of observers for each subject.
+	// Automatically synchronizes data access for threading (even for non-const functions).
+	// Uses a double layer of encapsulation to provide different levels of access to different clients.
+	// Clients of CELL class get a largely opaque data structure that only provides indirect access to cells through a proxy.
+	// CELL & CELL_FACTORY need some extra privilages to manage cell data, but need to be constrianed to the threadsafe interface.
+	class CELL_DATA {
+		class INNER_CELL_DATA {
+			std::unordered_map<CELL::CELL_POSITION, std::shared_ptr<CELL>, CELL_HASH> cellMap;					// Cell data
+			std::unordered_map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>, CELL_HASH> subscriptionMap;	// <Subject, (set of) Observers>
+			mutable std::mutex lkSubMap, lkCellMap;
+			friend class CELL_DATA;
+		};
+
+		INNER_CELL_DATA data;
+		std::shared_ptr<CELL> GetCell(const CELL::CELL_POSITION) const noexcept;
+		void NotifyAll(const CELL_POSITION) const noexcept;
+		void AssignCell(const std::shared_ptr<CELL>) noexcept;
+		void EraseCell(const CELL_POSITION) noexcept;
+		void SubscribeToCell(const CELL_POSITION, const CELL_POSITION) noexcept;
+		void UnsubscribeFromCell(const CELL_POSITION, const CELL_POSITION) noexcept;
+	public:
+		CELL_PROXY GetCellProxy(const CELL::CELL_POSITION) noexcept;
+		friend class CELL_FACTORY;
+		friend class CELL;
+	};
+
 	// Internal "Singleton" factory, which has implicit access to private and protected CELL members.
 	// NewCell() member function should be fixed for consistency with existing cell types.
 	// Factory should be open to extention to support new cell types, defaulting to NewCell().
 	class CELL_FACTORY {
 	public:
-		static CELL_PROXY NewCell(const CELL_POSITION, const std::string&) noexcept;
-		static void RecreateCell(const CELL_PROXY&, const CELL_POSITION) noexcept;
-		static CELL_PROXY GetCellProxy(const CELL::CELL_POSITION) noexcept;
-	protected:
-		static void NotifyAll(const CELL_POSITION) noexcept;
-		static std::shared_ptr<CELL> GetCell(const CELL::CELL_POSITION) noexcept;
-		friend class CELL;
+		static CELL_PROXY NewCell(CELL_DATA*, const CELL_POSITION, const std::string&) noexcept;
+		static void RecreateCell(CELL_DATA*, const CELL_PROXY&, const CELL_POSITION) noexcept;
 	};
 
 protected:
 	CELL() { }		// Hide constructor to force usage of factory function
 private:
-	CELL(const CELL_PROXY cell) { *this = *cell; CELL_FACTORY::NotifyAll(position); }		// Create cell from cell proxy and notify of change
+	CELL(const CELL_PROXY cell) { *this = *cell; parentContainer->NotifyAll(position); }		// Create cell from cell proxy and notify of change
 public:
-	virtual ~CELL() {}
+	virtual ~CELL() { }
 
 private:
 	std::string rawContent;
-	// An "Observer" pattern is used to notify relevant cells when changes occur.
-	// Changes may cascade, so notifications need to handle that effectively.
-	// Stores a set of observers for each subject.
-	static std::unordered_map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>, CELL_HASH> subscriptionMap;	// <Subject, (set of) Observers>
-	static std::unordered_map<CELL::CELL_POSITION, std::shared_ptr<CELL>, CELL_HASH> cellMap;					// Cell data
-	static std::mutex lkSubMap, lkCellMap;
 protected:
 	bool error{ false };
 	std::string displayValue;
 	CELL_POSITION position;
+	CELL_DATA* parentContainer{ nullptr };
 
 	void SubscribeToCell(const CELL_POSITION) const noexcept;
 	void UnsubscribeFromCell(const CELL_POSITION) const noexcept;
-	static void UnsubscribeFromCell(const CELL_POSITION, const CELL_POSITION) noexcept;
+	static void UnsubscribeFromCell(CELL_DATA* parentContainer, const CELL_POSITION subject, const CELL_POSITION observer) noexcept { parentContainer->UnsubscribeFromCell(subject, observer); }
 public:
 	virtual std::string GetOutput() const noexcept { return error ? "!ERROR!" : displayValue; }
 	virtual std::string GetRawContent() const noexcept { return rawContent; }
 	virtual void InitializeCell() noexcept { displayValue = rawContent; }
-	virtual bool MoveCell(const CELL_POSITION) noexcept;
 	virtual void UpdateCell() noexcept;						// Tell a CELL to update its state.
 	CELL_POSITION GetPosition() const noexcept { return position; }
 };
@@ -116,24 +134,9 @@ inline bool operator< (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION
 	else { return false; }
 }
 
-inline bool operator== (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION& rhs) {
-	if (lhs.column == rhs.column && lhs.row == rhs.row) { return true; }
-	else { return false; }
-}
+inline bool operator== (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION& rhs) { return lhs.column == rhs.column && lhs.row == rhs.row ? true : false; }
 
-inline bool operator!= (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION& rhs) {
-	return !(lhs == rhs);
-}
-
-// Initialize static data members of CELL
-// !!! -- IMPORTANT -- !!!	cellMap must be initialized after subscrptionMap		!!! -- IMPORTANT -- !!!
-// !!! -- IMPORTANT -- !!!	Improper ordering will cause program to crash upon exit	!!! -- IMPORTANT -- !!!
-// This is due to object lifetimes. Deconstruction of CELLs in cellMap cues unsubscription of CELL observation.
-// The CELL then searches through the deconstructed subscriptionMap to remove itself.
-// This causes an internal noexcept function to throw since it is traversing a tree that is no longer in a valid state.
-inline std::unordered_map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>, CELL::CELL_HASH> CELL::subscriptionMap{ };	// <Subject, Observers>
-inline std::unordered_map<CELL::CELL_POSITION, std::shared_ptr<CELL>, CELL::CELL_HASH> CELL::cellMap{ };					// Stores all CELLs
-inline std::mutex CELL::lkSubMap{ }, CELL::lkCellMap{ };
+inline bool operator!= (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION& rhs) { return !(lhs == rhs); }
 
 // A cell that is simply raw text merely outputs its text.
 class TEXT_CELL : public CELL {
@@ -149,7 +152,7 @@ public:
 	virtual ~REFERENCE_CELL() { UnsubscribeFromCell(referencePosition); }
 	std::string GetOutput() const noexcept override {
 		auto out = std::string{ };
-		auto cell = CELL_FACTORY::GetCellProxy(referencePosition);
+		auto cell = parentContainer->GetCellProxy(referencePosition);
 		if (!cell || cell->GetPosition() == position) { out = "!REF!"; }	// Dangling reference & reference to self both cause a reference error.
 		else { out = cell->GetOutput(); }
 		return error ? "!ERROR!" : out;
@@ -209,8 +212,9 @@ public:
 	};
 
 	struct REFERENCE_ARGUMENT : public ARGUMENT {
-		REFERENCE_ARGUMENT(FUNCTION_CELL&, CELL_POSITION);
-		~REFERENCE_ARGUMENT() { UnsubscribeFromCell(referencePosition, parentPosition); }
+		REFERENCE_ARGUMENT(CELL_DATA*, FUNCTION_CELL&, CELL_POSITION);
+		~REFERENCE_ARGUMENT() { CELL::UnsubscribeFromCell(parentContainer, referencePosition, parentPosition); }
+		CELL_DATA* parentContainer;
 		CELL_POSITION referencePosition, parentPosition;
 		bool UpdateArgument() noexcept override;
 	};

@@ -115,7 +115,7 @@ void CONSOLE_TABLE::Redraw() const noexcept {
 		pos.row = r;
 		for (auto c = 1; c <= numColumns; c++) {
 			pos.column = c;
-			auto cell = CELL::CELL_FACTORY::GetCellProxy(pos);
+			auto cell = cellData.GetCellProxy(pos);
 			cell ? output = cell->GetOutput() : output = "";
 			printf("[%*.*s]", innerCellWidth, innerCellWidth, output.c_str());
 		}
@@ -131,7 +131,7 @@ void CONSOLE_TABLE::PrintCellList() const noexcept{
 		cout << "Row " << r << " : " << endl;
 		for (auto c = 1; c <= numColumns; c++) {
 			pos.column = c;
-			auto cell = CELL::CELL_FACTORY::GetCellProxy(pos);
+			auto cell = cellData.GetCellProxy(pos);
 			if (!cell) { continue; }
 			cout << "R" << pos.row << 'C' << pos.column << " -> ";
 			printf("%*.*s", innerCellWidth, innerCellWidth, cell->GetOutput().c_str());
@@ -143,7 +143,7 @@ void CONSOLE_TABLE::PrintCellList() const noexcept{
 
 void CONSOLE_TABLE::UpdateCell(const CELL::CELL_POSITION pos) const noexcept {
 	if (!cellDiagnostics) { return; }
-	auto cell = CELL::CELL_FACTORY::GetCellProxy(pos);
+	auto cell = cellData.GetCellProxy(pos);
 	if (!cell) { return; }
 	cout << "Update Cell: R" << pos.row << 'C' << pos.column << " -> " << cell->GetOutput()
 		<< '\t' << cell->GetRawContent() << endl;
@@ -152,7 +152,7 @@ void CONSOLE_TABLE::UpdateCell(const CELL::CELL_POSITION pos) const noexcept {
 CELL::CELL_PROXY CONSOLE_TABLE::CreateNewCell() const noexcept {
 	auto input = string{ };
 	auto pos = RequestCellPos();
-	auto current = CELL::CELL_FACTORY::GetCellProxy(pos);
+	auto current = cellData.GetCellProxy(pos);
 	auto display = string{ };	auto raw = string{ };
 	if (current) {
 		display = current->GetOutput();
@@ -169,8 +169,8 @@ CELL::CELL_PROXY CONSOLE_TABLE::CreateNewCell() const noexcept {
 }
 
 CELL::CELL_PROXY CONSOLE_TABLE::CreateNewCell(const CELL::CELL_POSITION pos, const string& rawInput) const noexcept {
-	auto oldCell = CELL::CELL_FACTORY::GetCellProxy(pos);
-	auto nCell = CELL::CELL_FACTORY::NewCell(pos, rawInput);
+	auto oldCell = cellData.GetCellProxy(pos);
+	auto nCell = CELL::CELL_FACTORY::NewCell(&cellData, pos, rawInput);
 	auto oldText = string{ };
 	!oldCell ? oldText = ""s : oldText = oldCell->GetRawContent();
 	if (rawInput != oldText) { undoStack.emplace_back(oldCell, nCell); redoStack.clear(); }
@@ -203,7 +203,7 @@ void CONSOLE_TABLE::Undo() const noexcept {
 	auto pos = CELL::CELL_POSITION{ };
 	if (cell) { pos = cell->GetPosition(); }
 	else { pos = otherCell->GetPosition(); }
-	CELL::CELL_FACTORY::RecreateCell(cell, pos);			// Null cells need their position
+	CELL::CELL_FACTORY::RecreateCell(&cellData, cell, pos);			// Null cells need their position
 	redoStack.push_back(undoStack.back());
 	undoStack.pop_back();
 }
@@ -215,7 +215,7 @@ void CONSOLE_TABLE::Redo() const noexcept {
 	auto pos = CELL::CELL_POSITION{ };
 	if (cell) { pos = cell->GetPosition(); }
 	else { pos = otherCell->GetPosition(); }
-	CELL::CELL_FACTORY::RecreateCell(cell, pos);
+	CELL::CELL_FACTORY::RecreateCell(&cellData, cell, pos);
 	undoStack.push_back(redoStack.back());
 	redoStack.pop_back();
 }

@@ -57,8 +57,8 @@ void WINDOWS_TABLE::InitializeTable() noexcept {
 
 // Logic for Cell Windows to construct and display the appropriate CELL based upon user input string
 CELL::CELL_PROXY WINDOWS_TABLE::CreateNewCell(const CELL::CELL_POSITION pos, const string& rawInput) const noexcept {
-	auto oldCell = CELL::CELL_FACTORY::GetCellProxy(pos);
-	auto nCell = CELL::CELL_FACTORY::NewCell(pos, rawInput);
+	auto oldCell = cellData.GetCellProxy(pos);
+	auto nCell = CELL::CELL_FACTORY::NewCell(&cellData, pos, rawInput);
 	auto oldText = string{ };
 	!oldCell ? oldText = ""s : oldText = oldCell->GetRawContent();
 	if (rawInput != oldText) { undoStack.emplace_back(oldCell, nCell); redoStack.clear(); }
@@ -149,7 +149,7 @@ void WINDOWS_TABLE::Resize() noexcept {
 
 // Update cell text.
 void WINDOWS_TABLE::UpdateCell(const CELL::CELL_POSITION position) const noexcept {
-	auto cell = CELL::CELL_FACTORY::GetCellProxy(position);
+	auto cell = cellData.GetCellProxy(position);
 	auto id = WINDOWS_TABLE::CELL_ID{ position };
 	auto text = wstring{ };
 	!cell ? text = L""s : text = string_to_wstring(cell->GetOutput());
@@ -168,7 +168,7 @@ void WINDOWS_TABLE::Redraw() const noexcept {
 
 void WINDOWS_TABLE::FocusCell(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = WINDOWS_TABLE::CELL_ID{ pos };
-	auto cell = CELL::CELL_FACTORY::GetCellProxy(pos);
+	auto cell = cellData.GetCellProxy(pos);
 	auto text = wstring{ };
 	mostRecentCell = pos;
 	if (pos == posTargetCell) {							// If returning focus from upper-entry box...
@@ -183,6 +183,7 @@ void WINDOWS_TABLE::FocusCell(const CELL::CELL_POSITION pos) const noexcept {
 		SendMessage(id, EM_SETSEL, 0, -1);					// Select all within cell.
 		SetWindowText(h_Text_Edit_Bar, text.c_str());		// Otherwise, display raw content in entry bar.
 	}
+	else { SetWindowText(h_Text_Edit_Bar, L""); }			// Otherwise, clear entry bar.
 }
 
 void WINDOWS_TABLE::UnfocusCell(const CELL::CELL_POSITION pos)  const noexcept {
@@ -247,7 +248,7 @@ void WINDOWS_TABLE::Undo() const noexcept {
 	auto pos = CELL::CELL_POSITION{ };
 	if (cell) { pos = cell->GetPosition(); }
 	else { pos = otherCell->GetPosition(); }
-	CELL::CELL_FACTORY::RecreateCell(cell, pos);			// Null cells need their position
+	CELL::CELL_FACTORY::RecreateCell(&cellData, cell, pos);			// Null cells need their position
 	redoStack.push_back(undoStack.back());
 	undoStack.pop_back();
 }
@@ -259,7 +260,7 @@ void WINDOWS_TABLE::Redo() const noexcept {
 	auto pos = CELL::CELL_POSITION{ };
 	if (cell) { pos = cell->GetPosition(); }
 	else { pos = otherCell->GetPosition(); }
-	CELL::CELL_FACTORY::RecreateCell(cell, pos);
+	CELL::CELL_FACTORY::RecreateCell(&cellData, cell, pos);
 	undoStack.push_back(redoStack.back());
 	redoStack.pop_back();
 }

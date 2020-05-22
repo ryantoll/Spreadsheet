@@ -6,7 +6,7 @@
 using namespace std;
 using namespace RYANS_UTILITIES;
 
-CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(const CELL_POSITION position, const string& contents) noexcept {
+CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(CELL_DATA* parentContainer, const CELL_POSITION position, const string& contents) noexcept {
 	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
 	// but also prevents accidental errors in failing to specify a location.
 	// R == 0 || C == 0 almost certainly indicates a failure to specify one or both arguments.
@@ -15,8 +15,8 @@ CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(const CELL_POSITION position, const
 	// Empty contents argument not only fails to create a new cell, but deletes any cell that may already exist at that position.
 	// Notify any observing cells about the change *AFTER* the change has occurred.
 	// (Note that control flow immediately goes to any updating cells.)
-	auto oldCell = GetCell(position);
-	if (contents == "") { if (oldCell) { cellMap.erase(oldCell->position); NotifyAll(position); } return CELL::CELL_PROXY{ nullptr }; }
+	auto oldCell = parentContainer->GetCell(position);
+	if (contents == "") { if (oldCell) { parentContainer->EraseCell(oldCell->position); parentContainer->NotifyAll(position); } return CELL::CELL_PROXY{ nullptr }; }
 
 	// Avoid re-creating identical CELLs.
 	// If it already exists and is built from the same raw string, just return a pointer to the stored CELL.
@@ -46,38 +46,32 @@ CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(const CELL_POSITION position, const
 
 	cell->position = position;
 	cell->rawContent = contents;
-
-	{
-		auto lk = lock_guard<mutex>{ lkCellMap };	// Lock map only for write operation.
-		cellMap[position] = cell;					// Add cell to cell map upon creation.
-	}
+	cell->parentContainer = parentContainer;
+	parentContainer->AssignCell(cell);			// Add cell to cell map upon creation.
 
 	try { cell->InitializeCell(); }			// Call initialize on cell.
 	catch (...) { cell->error = true; }		// Failure of any sort will set the cell into an error state.
-	NotifyAll(position);					// Notify any cells that may be observing this position.
+	parentContainer->NotifyAll(position);	// Notify any cells that may be observing this position.
 
-	table->UpdateCell(position);			// Notify GUI to update cell value.
-	return GetCellProxy(position);			// Return stored cell so that failed numerical cells return the stored fallback text cell rather than the original failed numerical cell.
+	table->UpdateCell(position);						// Notify GUI to update cell value.
+	return parentContainer->GetCellProxy(position);		// Return stored cell so that failed numerical cells return the stored fallback text cell rather than the original failed numerical cell.
 }
 
-void CELL::CELL_FACTORY::RecreateCell(const CELL_PROXY& cell, const CELL_POSITION pos) noexcept {
-	{
-		auto lk = lock_guard<mutex>{ lkCellMap };	// Lock map only for write operation.
-		if (!cell) { cellMap.erase(pos); }			// Cell stays subscribed.
-		else { cellMap[pos] = cell.cell; }
-	}
-	NotifyAll(pos);
+void CELL::CELL_FACTORY::RecreateCell(CELL_DATA* parentContainer, const CELL_PROXY& cell, const CELL_POSITION pos) noexcept {
+	if (!cell) { parentContainer->EraseCell(pos); }			// Cell stays subscribed.
+	else { parentContainer->AssignCell(cell.cell); }
+	parentContainer->NotifyAll(pos);
 	table->UpdateCell(pos);
 }
 
 // Notifies observing CELLs of change in underlying data.
 // Each CELL is responsible for checking the new data.
-void CELL::CELL_FACTORY::NotifyAll(const CELL_POSITION subject) noexcept {
+void CELL::CELL_DATA::NotifyAll(const CELL_POSITION subject) const noexcept {
 	auto notificationSet = std::set<CELL_POSITION>{ };
 	{
-		auto lk = lock_guard<mutex>{ lkSubMap };		// Lock only to get local copy of notification set
-		auto it = subscriptionMap.find(subject);
-		if (it == subscriptionMap.end()) { return; }
+		auto lk = lock_guard<mutex>{ data.lkSubMap };		// Lock only to get local copy of notification set
+		auto it = data.subscriptionMap.find(subject);
+		if (it == data.subscriptionMap.end()) { return; }
 		notificationSet = it->second;					// Get local copy of notification set so that lock can be released before updating cells, which will require it's own lock downstream
 	}
 	for (auto observer: notificationSet) { 
@@ -87,44 +81,47 @@ void CELL::CELL_FACTORY::NotifyAll(const CELL_POSITION subject) noexcept {
 	}
 }
 
-// Move a cell to a new location, updating its key as well to reflect the change.
-bool CELL::MoveCell(const CELL_POSITION newPosition) noexcept {
-	if (cellMap.find(newPosition) != cellMap.end()) { return false; }
-	cellMap[newPosition] = cellMap[position];
-	cellMap.erase(position);
-	position = newPosition;
-	return true;
+void CELL::CELL_DATA::AssignCell(const shared_ptr<CELL> cell) noexcept {
+	auto lk = lock_guard<mutex>{ data.lkCellMap };
+	data.cellMap[cell->position] = cell;
+}
+
+void CELL::CELL_DATA::EraseCell(const CELL_POSITION pos) noexcept {
+	auto lk = lock_guard<mutex>{ data.lkCellMap };
+	data.cellMap.erase(pos);
 }
 
 // Subscribe to notification of changes in target CELL.
-void CELL::SubscribeToCell(const CELL_POSITION subject) const noexcept { 
-	auto lk = lock_guard<mutex>{ lkSubMap };
-	auto& observerSet = subscriptionMap[subject]; 
-	observerSet.insert(position);
-}
+void CELL::SubscribeToCell(const CELL_POSITION subject) const noexcept { parentContainer->SubscribeToCell(subject, position); }
 
 // Use static overload below
-void CELL::UnsubscribeFromCell(const CELL_POSITION subject) const noexcept { UnsubscribeFromCell(subject, position); }
+void CELL::UnsubscribeFromCell(const CELL_POSITION subject) const noexcept { parentContainer->UnsubscribeFromCell(subject, position); }
+
+void CELL::CELL_DATA::SubscribeToCell(const CELL_POSITION subject, const CELL_POSITION observer) noexcept {
+	auto lk = lock_guard<mutex>{ data.lkSubMap };
+	auto& observerSet = data.subscriptionMap[subject];
+	observerSet.insert(observer);
+}
 
 // Remove observer link (Subject, Observer)
-void CELL::UnsubscribeFromCell(const CELL_POSITION subject, const CELL_POSITION observer) noexcept {
-	auto lk = lock_guard<mutex>{ lkSubMap };
-	auto itSubject = subscriptionMap.find(subject);
-	if (itSubject == subscriptionMap.end()) { return; }
+void CELL::CELL_DATA::UnsubscribeFromCell(const CELL_POSITION subject, const CELL_POSITION observer) noexcept {
+	auto lk = lock_guard<mutex>{ data.lkSubMap };
+	auto itSubject = data.subscriptionMap.find(subject);
+	if (itSubject == data.subscriptionMap.end()) { return; }
 	(*itSubject).second.erase(observer);
 }
 
-std::shared_ptr<CELL> CELL::CELL_FACTORY::GetCell(const CELL::CELL_POSITION pos) noexcept {
-	auto lk = lock_guard<mutex>{ lkCellMap };
-	auto it = cellMap.find(pos);
-	return it != cellMap.end() ? it->second : nullptr;
+std::shared_ptr<CELL> CELL::CELL_DATA::GetCell(const CELL::CELL_POSITION pos) const noexcept {
+	auto lk = lock_guard<mutex>{ data.lkCellMap };
+	auto it = data.cellMap.find(pos);
+	return it != data.cellMap.end() ? it->second : nullptr;
 }
 
-CELL::CELL_PROXY CELL::CELL_FACTORY::GetCellProxy(const CELL::CELL_POSITION pos) noexcept { return CELL_PROXY{ GetCell(pos) }; }
+CELL::CELL_PROXY CELL::CELL_DATA::GetCellProxy(const CELL::CELL_POSITION pos) noexcept { return CELL_PROXY{ CELL_DATA::GetCell(pos) }; }
 
 void CELL::UpdateCell() noexcept {
 	table->UpdateCell(position); 		// Call update cell on GUI base pointer.
-	CELL_FACTORY::NotifyAll(position);	// Cascade notification
+	parentContainer->NotifyAll(position);	// Cascade notification
 }
 
 void TEXT_CELL::InitializeCell() noexcept {
@@ -168,7 +165,7 @@ void NUMERICAL_CELL::InitializeCell() noexcept {
 		for (auto c : GetRawContent()) { if (!isdigit(c) && c != '.' && c != '-') { throw invalid_argument("Error parsing input text. \nText could not be interpreted as a number"); } }
 		storedValue = stod(GetRawContent());
 	}
-	catch (...) { CELL::CELL_FACTORY::NewCell(position, "'" + GetRawContent()); }
+	catch (...) { CELL::CELL_FACTORY::NewCell(parentContainer, position, "'" + GetRawContent()); }
 }
 
 // I'm not sure how best to implement this mapping of text to function objects.
@@ -234,8 +231,8 @@ shared_ptr<FUNCTION_CELL::ARGUMENT> FUNCTION_CELL::ParseFunctionString(string& i
 	else if (inputText[0] == '&') { /*Convert reference*/ 
 		auto pos = ReferenceStringToCellPosition(inputText);
 		SubscribeToCell(pos);
-		if (!CELL_FACTORY::GetCellProxy(pos)) { error = true; }		// Dangling reference: set error flag. Still need to construct reference argument for future use.
-		return make_shared<FUNCTION_CELL::REFERENCE_ARGUMENT>(*this, pos);
+		if (!parentContainer->GetCellProxy(pos)) { error = true; }		// Dangling reference: set error flag. Still need to construct reference argument for future use.
+		return make_shared<FUNCTION_CELL::REFERENCE_ARGUMENT>(parentContainer, *this, pos);
 	}
 	else if (isdigit(inputText[0]) || inputText[0] == '.' || inputText[0] == '-') { /*Convert to value*/
 		while (isdigit(inputText[n]) || inputText[n] == '.' || inputText[n] == '-') { ++n; }	// Keep grabbing chars until an invalid char is reached
@@ -302,13 +299,13 @@ FUNCTION_CELL::VALUE_ARGUMENT::VALUE_ARGUMENT(double arg) { storedArgument = arg
 bool FUNCTION_CELL::VALUE_ARGUMENT::UpdateArgument() noexcept { SetValue(storedArgument); return false; }
 
 // Reference arugment stores positions of target and parent cells and then updates it's argument.
-FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(FUNCTION_CELL& parentCell, CELL_POSITION pos) 
-	: referencePosition(pos), parentPosition(parentCell.position) {	UpdateArgument(); }
+FUNCTION_CELL::REFERENCE_ARGUMENT::REFERENCE_ARGUMENT(CELL::CELL_DATA* container, FUNCTION_CELL& parentCell, CELL_POSITION pos) 
+	: parentContainer(container), referencePosition(pos), parentPosition(parentCell.position) {	UpdateArgument(); }
 
 // Look up referenced value and store in the associated future.
 // Store an exception if there's a dangling or circular reference.
 bool FUNCTION_CELL::REFERENCE_ARGUMENT::UpdateArgument() noexcept {
-	auto refCell = CELL_FACTORY::GetCellProxy(referencePosition);
+	auto refCell = parentContainer->GetCellProxy(referencePosition);
 	try {
 		if (!refCell || refCell->GetPosition() == parentPosition) { throw invalid_argument{ "Reference Error" }; }	// Check that value exists and is not circular reference
 		auto nValue = stod(refCell->GetRawContent());

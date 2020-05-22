@@ -64,6 +64,7 @@ protected:
 	int x0{ 0 };
 	int y0{ 25 };
 	HWND hParent;
+	mutable CELL::CELL_DATA cellData;
 	mutable CELL::CELL_POSITION origin{ 0, 0 };		// Origin is the "off-the-begining" cell to the upper-left of the upper-left cell
 	mutable CELL::CELL_POSITION posTargetCell{ };	// Tracks position of cell currently associated with upper edit box, may be blank
 	mutable CELL::CELL_POSITION mostRecentCell{ };	// Tracks position of most recently selected cell for either target selection or new cell creation
@@ -158,6 +159,7 @@ public:
 	void ClearCell(const CELL::CELL_POSITION) const noexcept;
 	CELL::CELL_POSITION RequestCellPos() const noexcept;
 protected:
+	mutable CELL::CELL_DATA cellData;
 	mutable std::vector<std::pair<CELL::CELL_PROXY, CELL::CELL_PROXY>> undoStack{ };
 	mutable std::vector<std::pair<CELL::CELL_PROXY, CELL::CELL_PROXY>> redoStack{ };
 
