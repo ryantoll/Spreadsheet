@@ -169,6 +169,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="__Cell.cpp" />
+    <ClCompile Include="__Cell_Functions.cpp" />
     <ClCompile Include="__Table_Console_Application.cpp" />
     <ClCompile Include="__Table_Windows_OS.cpp" />
   </ItemGroup>

@@ -25,6 +25,12 @@
     <Filter Include="Source Files\Table">
       <UniqueIdentifier>{99b73826-a750-44ed-b6ac-cc819bd1e325}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Cell">
+      <UniqueIdentifier>{3d4bd1ba-5d4c-43d6-a33b-044b51515340}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Cell">
+      <UniqueIdentifier>{8342c592-797a-4442-832a-d85002080fea}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -32,9 +38,6 @@
     </ClInclude>
     <ClInclude Include="SpreadsheetApplication.h">
       <Filter>Header Files\Top-Level Window</Filter>
-    </ClInclude>
-    <ClInclude Include="__Cell.h">
-      <Filter>Header Files\Table</Filter>
     </ClInclude>
     <ClInclude Include="__Table.h">
       <Filter>Header Files\Table</Filter>
@@ -47,6 +50,9 @@
     </ClInclude>
     <ClInclude Include="targetver.h">
       <Filter>Header Files\Top-Level Window</Filter>
+    </ClInclude>
+    <ClInclude Include="__Cell.h">
+      <Filter>Header Files\Cell</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -62,14 +68,17 @@
     <ClCompile Include="Windows Infrastructure.cpp">
       <Filter>Source Files\Top-Level Window</Filter>
     </ClCompile>
-    <ClCompile Include="__Cell.cpp">
-      <Filter>Source Files\Table</Filter>
-    </ClCompile>
     <ClCompile Include="__Table_Windows_OS.cpp">
       <Filter>Source Files\Table</Filter>
     </ClCompile>
     <ClCompile Include="__Table_Console_Application.cpp">
       <Filter>Source Files\Table</Filter>
+    </ClCompile>
+    <ClCompile Include="__Cell_Functions.cpp">
+      <Filter>Source Files\Cell</Filter>
+    </ClCompile>
+    <ClCompile Include="__Cell.cpp">
+      <Filter>Source Files\Cell</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

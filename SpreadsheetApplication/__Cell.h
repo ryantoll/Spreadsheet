@@ -26,11 +26,14 @@ constexpr auto MaxColumn_{ UINT16_MAX };
 // It stores the raw input string, a display value of that string, and returns the protected display value.
 class CELL {
 public:
+	// Position of cell: Column, Row
 	struct CELL_POSITION {
 		unsigned int column{ 0 };
 		unsigned int row{ 0 };
 	};
 
+	// Hash function of CELL_POSITION
+	// It is simply a bitwise concatination of the column and row bits.
 	struct CELL_HASH {
 		std::size_t operator() (CELL::CELL_POSITION const& pos) const noexcept {
 			auto x = unsigned long{ 0 };
@@ -91,6 +94,7 @@ public:
 		CELL_PROXY GetCellProxy(const CELL::CELL_POSITION) noexcept;
 		friend class CELL_FACTORY;
 		friend class CELL;
+		friend struct REFERENCE_ARGUMENT;
 	};
 
 	// Internal "Singleton" factory, which has implicit access to private and protected CELL members.
@@ -119,7 +123,6 @@ protected:
 
 	void SubscribeToCell(const CELL_POSITION) const noexcept;
 	void UnsubscribeFromCell(const CELL_POSITION) const noexcept;
-	static void UnsubscribeFromCell(CELL_DATA* parentContainer, const CELL_POSITION subject, const CELL_POSITION observer) noexcept { parentContainer->UnsubscribeFromCell(subject, observer); }
 public:
 	virtual std::string GetOutput() const noexcept { return error ? "!ERROR!" : displayValue; }
 	virtual std::string GetRawContent() const noexcept { return rawContent; }
@@ -162,6 +165,10 @@ protected:
 	CELL_POSITION referencePosition;
 };
 
+// Parese string into Row & Column positions of reference cell
+// Parsing allows for either ordering and is not case-sensitive
+CELL::CELL_POSITION ReferenceStringToCellPosition(const std::string& refString);
+
 // A base class for all cells that contains numbers.
 class NUMERICAL_CELL : public CELL {
 protected:
@@ -173,69 +180,76 @@ public:
 	void InitializeCell() noexcept override;
 };
 
+struct ARGUMENT;
 // A cell that contains one or more FUNCTION(s).
-// FUNCTION will utilize the "Strategy" pattern to support numerous function types by specializing the base FUNCTION type for each function used.
-// FUNCTION_CELL will utilize the "Composite" pattern to treat singular and aggregate FUNCTIONS uniformly.
-// Alternatively, FUNCTION could simply store a function pointer that stores the appropriate function at runtime based upon function name lookup.
-// Each function must have the same call signature to fit in the same pointer object (taking a vector of ARGUMENTS and storing a double).
-// The sub-classing option is used here to comport with the broader goal of demonstrating established Object-oriented design patterns.
-// This alternate strategy is shown in comments for completeness.
-// Functions use lazy evaluation and support parallel evaluation.
 class FUNCTION_CELL : public NUMERICAL_CELL {
 public:
 	void InitializeCell() noexcept override;
 	void UpdateCell() noexcept override;		// Need to add recalculate logic here for when reference cells update
-
-	struct ARGUMENT {
-		virtual bool UpdateArgument() noexcept { return true; }				// Logic to update argument when dependent cells update. May be trivial.
-		double Get() { return stillValid ? storedArgument : val.get(); }	// Lazy evaluation
-	protected:
-		std::future<double> val;
-		double storedArgument{ };
-		bool stillValid{ false };
-		void SetValue(double) noexcept;
-		void SetValue(std::exception) noexcept;
-	};
-
-	struct FUNCTION : public ARGUMENT {
-		FUNCTION() = default;
-		FUNCTION(std::vector<std::shared_ptr<ARGUMENT>>&&);
-		std::vector<std::shared_ptr<ARGUMENT>> Arguments;
-		//double (*funPTR) (vector<ARGUMENT>);			// Alternate to subclassing, just assign a function to this pointer at runtime.
-		bool UpdateArgument() noexcept override;
-		bool error{ false };
-	};
-
-	struct VALUE_ARGUMENT : public ARGUMENT {
-		explicit VALUE_ARGUMENT(double);
-		bool UpdateArgument() noexcept override;
-	};
-
-	struct REFERENCE_ARGUMENT : public ARGUMENT {
-		REFERENCE_ARGUMENT(CELL_DATA*, FUNCTION_CELL&, CELL_POSITION);
-		~REFERENCE_ARGUMENT() { CELL::UnsubscribeFromCell(parentContainer, referencePosition, parentPosition); }
-		CELL_DATA* parentContainer;
-		CELL_POSITION referencePosition, parentPosition;
-		bool UpdateArgument() noexcept override;
-	};
-
 protected:
 	std::shared_ptr<ARGUMENT> func;
-
-	std::shared_ptr<FUNCTION_CELL::ARGUMENT> ParseFunctionString(std::string&);
-public:
-	/*////////////////////////////////////////////////////////////
-	// List of available operations overriding Function
-	*/////////////////////////////////////////////////////////////
-	struct SUM : public FUNCTION { SUM(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
-	struct AVERAGE : public FUNCTION { AVERAGE(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
-	struct PRODUCT : public FUNCTION { PRODUCT(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
-	struct INVERSE : public FUNCTION { INVERSE(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
-	struct RECIPROCAL : public FUNCTION { RECIPROCAL(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
-	struct PI : public FUNCTION { PI(); bool UpdateArgument() noexcept final; };
-
-	// Part of an alternative function mapping scheme
-	// std::unordered_map<wstring, shared_ptr<FUNCTION_CELL::FUNCTION>> functionNameMap{ {wstring(L"SUM"), shared_ptr<FUNCTION_CELL::SUM>()}, {wstring(L"AVERAGE"), shared_ptr<FUNCTION_CELL::AVERAGE>()} };
+	std::shared_ptr<ARGUMENT> ParseFunctionString(std::string&);
 };
+
+// ARGUMENT serves as the argument for FUNCTIONs, which are in turn ARGUMENTs themselves.
+// It contains a future to get its value from an async call, stores the value, and tracks changes in underlying arguments.
+struct ARGUMENT {
+	virtual bool UpdateArgument() noexcept { return true; }				// Logic to update argument when dependent cells update. May be trivial.
+	double Get() { return stillValid ? storedArgument : val.get(); }	// Lazy evaluation
+protected:
+	std::future<double> val;
+	double storedArgument{ };
+	bool stillValid{ false };
+	void SetValue(double) noexcept;
+	void SetValue(std::exception) noexcept;
+};
+
+// FUNCTION will utilize the "Strategy" pattern to support numerous function types by specializing the base FUNCTION type for each function used.
+// FUNCTION_CELL will utilize the "Composite" pattern to treat singular and aggregate FUNCTIONS uniformly.
+// Each FUNCTION both takes ARGUMENTs and is itself an ARGUMENT, allowing for recursive composition.
+// Alternatively, FUNCTION could simply store a function pointer that stores the appropriate function at runtime based upon function name lookup.
+// Each function must have the same call signature to fit in the same pointer object (taking a vector of ARGUMENTS and storing a double).
+// The sub-classing option is used here to comport with the broader goal of demonstrating established Object-oriented design patterns.
+// This alternate strategy is shown in comments for completeness.
+// Functions use lazy evaluation and support parallel evaluation and avoid duplicate work.
+struct FUNCTION : public ARGUMENT {
+	FUNCTION() = default;
+	FUNCTION(std::vector<std::shared_ptr<ARGUMENT>>&&);
+	std::vector<std::shared_ptr<ARGUMENT>> Arguments;
+	bool error{ false };
+	//double (*funPTR) (vector<ARGUMENT>);			// Alternate to subclassing, just assign a function to this pointer at runtime.
+	bool UpdateArgument() noexcept override;
+};
+
+struct VALUE_ARGUMENT : public ARGUMENT {
+	explicit VALUE_ARGUMENT(double);
+	bool UpdateArgument() noexcept override;
+};
+
+struct REFERENCE_ARGUMENT : public ARGUMENT {
+	REFERENCE_ARGUMENT(CELL::CELL_DATA*, FUNCTION_CELL&, CELL::CELL_POSITION);
+	~REFERENCE_ARGUMENT();
+	CELL::CELL_DATA* parentContainer;
+	CELL::CELL_POSITION referencePosition, parentPosition;
+	bool UpdateArgument() noexcept override;
+};
+
+/*////////////////////////////////////////////////////////////
+// List of available operations overriding Function
+*/////////////////////////////////////////////////////////////
+
+// I'm not sure how best to implement this mapping of text to function objects.
+// Each one must get a newly created object, lest they share the same arguments.
+std::shared_ptr<FUNCTION> MatchNameToFunction(const std::string& inputText, std::vector<std::shared_ptr<ARGUMENT>>&& args);
+
+struct SUM : public FUNCTION { SUM(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
+struct AVERAGE : public FUNCTION { AVERAGE(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
+struct PRODUCT : public FUNCTION { PRODUCT(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
+struct INVERSE : public FUNCTION { INVERSE(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
+struct RECIPROCAL : public FUNCTION { RECIPROCAL(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
+struct PI : public FUNCTION { PI(); bool UpdateArgument() noexcept final; };
+
+// Part of an alternative function mapping scheme
+// std::unordered_map<wstring, shared_ptr<FUNCTION_CELL::FUNCTION>> functionNameMap{ {wstring(L"SUM"), shared_ptr<FUNCTION_CELL::SUM>()}, {wstring(L"AVERAGE"), shared_ptr<FUNCTION_CELL::AVERAGE>()} };
 
 #endif // !CELL_CLASS_H

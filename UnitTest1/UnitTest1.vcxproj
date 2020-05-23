@@ -101,7 +101,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <AdditionalLibraryDirectories>$(VCInstallDir)UnitTest\lib;D:\Programming\SpreadsheetApplication\SpreadsheetApplication\Debug;D:\Programming\SpreadsheetApplication\SpreadsheetApplication;D:\Programming\SpreadsheetApplication\SpreadsheetApplication\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>stdafx.obj;__Cell.obj;__Table_Console_Application.obj;__Table_Windows_OS.obj;SpreadsheetApplication.obj;Windows Infrastructure.obj;About.obj;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>stdafx.obj;__Cell.obj;__Cell_Functions.obj;__Table_Console_Application.obj;__Table_Windows_OS.obj;SpreadsheetApplication.obj;Windows Infrastructure.obj;About.obj;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
