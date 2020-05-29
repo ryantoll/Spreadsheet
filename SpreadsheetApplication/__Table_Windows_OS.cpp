@@ -25,7 +25,7 @@ void WINDOWS_TABLE::InitializeTable() noexcept {
 	// For now, I am just grabbing it once for reuse later.
 	// I expect to subclass the entry bar as well, but I don't have anything built for that yet.
 	// In the meantime, I am just setting the proceedure back to what it was once I grabbed the default.
-	EditHandler = reinterpret_cast<WNDPROC>(SetWindowLong(h_Text_Edit_Bar, GWLP_WNDPROC, reinterpret_cast<LONG>(EntryBarWindowProc)));
+	EditHandler = reinterpret_cast<WNDPROC>(SetWindowLongPtr(h_Text_Edit_Bar, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(EntryBarWindowProc)));
 	//SetWindowLong(h_Text_Edit_Bar, GWL_WNDPROC, (LONG)EditHandler);
 
 	Resize();		// Resize command will fill out the space with cell windows
@@ -83,7 +83,7 @@ void WINDOWS_TABLE::AddRow() noexcept {
 		cell_ID.IncrementColumn();
 		h = CreateWindow(TEXT("edit"), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + cell_ID.GetColumn() * width, y0 + (numRows)* height, width, height, hTable, cell_ID, hInst, NULL);
 		table->UpdateCell(cell_ID);								// Update cell display
-		SetWindowLong(h, GWLP_WNDPROC, reinterpret_cast<LONG>(CellWindowProc));	// Associate with cell window procedure
+		SetWindowLongPtr(h, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(CellWindowProc));	// Associate with cell window procedure
 	}
 }
 
@@ -102,7 +102,7 @@ void WINDOWS_TABLE::AddColumn() noexcept {
 		cell_ID.IncrementRow();
 		auto h = CreateWindow(TEXT("edit"), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, x0 + cell_ID.GetColumn() * width, y0 + cell_ID.GetRow() * height, width, height, hTable, cell_ID, hInst, NULL);
 		table->UpdateCell(cell_ID);								// Update cell display
-		SetWindowLong(h, GWLP_WNDPROC, reinterpret_cast<LONG>(CellWindowProc));	// Associate with cell window procedure
+		SetWindowLongPtr(h, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(CellWindowProc));	// Associate with cell window procedure
 	}
 }
 
