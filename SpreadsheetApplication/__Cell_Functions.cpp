@@ -19,7 +19,8 @@ shared_ptr<FUNCTION> MatchNameToFunction(const string& inputText, vector<shared_
 	else if (inputText == "INVERSE"s) { return make_shared<INVERSE>(std::move(args)); }
 	else if (inputText == "RECIPROCAL"s) { return make_shared<RECIPROCAL>(std::move(args)); }
 	else if (inputText == "PI"s) { return make_shared<PI>(); }
-	else { return make_shared<FUNCTION>(std::move(args)); }
+	//else { return make_shared<FUNCTION>(std::move(args)); }
+	else { throw invalid_argument("Error parsing input text."); }	/*Set error flag*/
 }
 
 // As I write this, I realize how complicated this parsing can become.

@@ -172,18 +172,22 @@ void NUMERICAL_CELL::InitializeCell() noexcept {
 void FUNCTION_CELL::InitializeCell() noexcept {
 	auto inputText = GetRawContent().substr(1);
 	auto vArgs = vector<shared_ptr<ARGUMENT>>{ };
-	vArgs.push_back(ParseFunctionString(inputText));	// Recursively parse input string
-	func = make_shared<FUNCTION>( std::move(vArgs) );
-	try { storedValue = func->Get(); }
-	catch (...) { error = true; }
+	try { 
+		vArgs.push_back(ParseFunctionString(inputText));	// Recursively parse input string
+		func = make_shared<FUNCTION>(std::move(vArgs));
+		storedValue = func->Get();
+	}
+	catch (...) { CELL::CELL_FACTORY::NewCell(parentContainer, position, "'" + GetRawContent()); }
 }
 
 // Recalculate function when an underlying reference argument is changed.
 void FUNCTION_CELL::UpdateCell() noexcept {
 	displayValue = "";
 	error = false;		// Reset error flag in case there was a prior error
-	func->UpdateArgument();
-	try { storedValue = func->Get(); }
+	try { 
+		func->UpdateArgument();
+		storedValue = func->Get();
+	}
 	catch (...) { error = true; }
 	CELL::UpdateCell();
 }
