@@ -68,7 +68,7 @@ WINDOWS_TABLE::~WINDOWS_TABLE() { }		// Hook for any on-exit logic
 void WINDOWS_TABLE::AddRow() noexcept {
 	auto tempVec = vector<HWND>{ };
 	auto cell_ID = CELL_ID{ };
-	cell_ID.SetRow(++numRows).SetColumn(0);
+	cell_ID.Row(++numRows).Column(0);
 
 	// Create label for row
 	auto label = "R"s + to_string(numRows);
@@ -78,10 +78,10 @@ void WINDOWS_TABLE::AddRow() noexcept {
 	window.SetWindowTitle(label).MoveWindow(pos, size);
 
 	// Loop through creating cell windows, filling in display value if it exists
-	while (cell_ID.GetColumn() < numColumns) {
+	while (cell_ID.Column() < numColumns) {
 		cell_ID.IncrementColumn();
 		window = ConstructChildWindow("edit"s, m_Table, cell_ID, hInst);
-		pos.X(x0 + cell_ID.GetColumn() * width).Y(y0 + (numRows)*height);
+		pos.X(x0 + cell_ID.Column() * width).Y(y0 + (numRows)*height);
 		window.MoveWindow(pos, size);
 		table->UpdateCell(cell_ID);
 		window.SetProcedure(CellWindowProc);
@@ -91,7 +91,7 @@ void WINDOWS_TABLE::AddRow() noexcept {
 // Create a new column of cells at right edge.
 void WINDOWS_TABLE::AddColumn() noexcept {
 	auto cell_ID = CELL_ID{ };
-	cell_ID.SetRow(0).SetColumn(++numColumns);
+	cell_ID.Row(0).Column(++numColumns);
 
 	// Create label for column
 	auto label = "C"s + to_string(numColumns);
@@ -101,10 +101,10 @@ void WINDOWS_TABLE::AddColumn() noexcept {
 	window.SetWindowTitle(label).MoveWindow(pos, size);
 
 	// Loop through creating cell windows, filling in display value if it exists
-	while (cell_ID.GetRow() < numRows) {
+	while (cell_ID.Row() < numRows) {
 		cell_ID.IncrementRow();
 		window = ConstructChildWindow("edit"s, m_Table, cell_ID, hInst);
-		pos.X(x0 + cell_ID.GetColumn() * width).Y(y0 + cell_ID.GetRow() * height);
+		pos.X(x0 + cell_ID.Column() * width).Y(y0 + cell_ID.Row() * height);
 		window.MoveWindow(pos, size);
 		table->UpdateCell(cell_ID);
 		window.SetProcedure(CellWindowProc);
@@ -114,16 +114,16 @@ void WINDOWS_TABLE::AddColumn() noexcept {
 // Remove bottom row of cells.
 void WINDOWS_TABLE::RemoveRow() noexcept {
 	auto id = CELL_ID{ };
-	auto h = HWND{ id.SetRow(numRows) };
-	while (id.GetColumn() <= numColumns) { DestroyWindow(h); h = id.IncrementColumn(); }	// Increment through row and destroy cells
+	auto h = HWND{ id.Row(numRows) };
+	while (id.Column() <= numColumns) { DestroyWindow(h); h = id.IncrementColumn(); }	// Increment through row and destroy cells
 	numRows--;
 }
 
 // Remove right column of cells.
 void WINDOWS_TABLE::RemoveColumn() noexcept {
 	auto id = CELL_ID{ };
-	auto h = HWND{ id.SetRow(numRows) };
-	while (id.GetRow() <= numRows) { DestroyWindow(h); h = id.IncrementRow(); }	// Increment through column and destroy cells
+	auto h = HWND{ id.Row(numRows) };
+	while (id.Row() <= numRows) { DestroyWindow(h); h = id.IncrementRow(); }	// Increment through column and destroy cells
 	numColumns--;
 }
 
@@ -209,8 +209,8 @@ void WINDOWS_TABLE::UnfocusEntryBox(const CELL::CELL_POSITION pos) const noexcep
 	auto id = CELL_ID{ pos };
 	if (posTargetCell != CELL::CELL_POSITION{ } && pos != posTargetCell) {
 		auto out = wstring{ L"&" };
-		out += L"R" + to_wstring(id.GetRow());
-		out += L"C" + to_wstring(id.GetColumn());
+		out += L"R" + to_wstring(id.Row());
+		out += L"C" + to_wstring(id.Column());
 		m_Text_Edit_Bar.Focus();															// Set focus back to upper edit bar
 		m_Text_Edit_Bar.Message(EM_REPLACESEL, 0, reinterpret_cast<LPARAM>(out.c_str()));	// Get row and column of selected cell and add reference text to upper edit bar
 	}
@@ -218,25 +218,25 @@ void WINDOWS_TABLE::UnfocusEntryBox(const CELL::CELL_POSITION pos) const noexcep
 
 void WINDOWS_TABLE::FocusUp1(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = CELL_ID{ pos };
-	if (id.GetRow() == 1) { return; }			// Stop at bottom edge
+	if (id.Row() == 1) { return; }			// Stop at bottom edge
 	SetFocus(id.DecrementRow());				// Decrement row and set focus to new cell
 }
 
 void WINDOWS_TABLE::FocusDown1(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = CELL_ID{ pos };
-	if (id.GetRow() >= table->GetNumRows()) { /*winTable->origin.column++; winTable->Resize();*/ return; }		// Stop at top edge
+	if (id.Row() >= table->GetNumRows()) { /*winTable->origin.column++; winTable->Resize();*/ return; }		// Stop at top edge
 	SetFocus(id.IncrementRow());	// Increment row and set focus to new cell
 }
 
 void WINDOWS_TABLE::FocusRight1(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = CELL_ID{ pos };
-	if (id.GetColumn() >= table->GetNumColumns()) { /*winTable->origin.column++; winTable->Resize();*/ return; }	// Stop at right edge
+	if (id.Column() >= table->GetNumColumns()) { /*winTable->origin.column++; winTable->Resize();*/ return; }	// Stop at right edge
 	SetFocus(id.IncrementColumn());				// Increment column and set focus to new cell
 }
 
 void WINDOWS_TABLE::FocusLeft1(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = CELL_ID{ pos };
-	if (id.GetColumn() == 1) { return; }		// Stop at left edge
+	if (id.Column() == 1) { return; }		// Stop at left edge
 	SetFocus(id.DecrementColumn());				// Decrement column and set focus to new cell
 }
 

@@ -124,14 +124,14 @@ public:
 	explicit CELL_ID(const unsigned long newWindowID): windowID(newWindowID) { Position_From_Win_ID(); }
 	explicit CELL_ID(const HWND h) : windowID(GetDlgCtrlID(h)) { Position_From_Win_ID(); }
 
-	void SetWindowID(const int newID) noexcept { windowID = newID; Position_From_Win_ID(); }
-	auto& SetRow(const unsigned int newRowIndex) noexcept { position.row = newRowIndex; Win_ID_From_Position(); return *this; }
-	auto& SetColumn(const unsigned int newColumnIndex) noexcept { position.column = newColumnIndex; Win_ID_From_Position(); return *this; }
+	void WindowID(const int newID) noexcept { windowID = newID; Position_From_Win_ID(); }
+	auto& Row(const unsigned int newRowIndex) noexcept { position.row = newRowIndex; Win_ID_From_Position(); return *this; }
+	auto& Column(const unsigned int newColumnIndex) noexcept { position.column = newColumnIndex; Win_ID_From_Position(); return *this; }
 	auto& SetCellPosition(const CELL::CELL_POSITION newPosition) noexcept { position = newPosition; Win_ID_From_Position(); return *this; }
 
-	auto GetWindowID() const noexcept { return windowID; }
-	auto GetRow() const noexcept { return position.row; }
-	auto GetColumn() const noexcept { return position.column; }
+	auto WindowID() const noexcept { return windowID; }
+	auto Row() const noexcept { return position.row; }
+	auto Column() const noexcept { return position.column; }
 
 	auto& IncrementRow() noexcept { position.row++; Win_ID_From_Position(); return *this; }
 	auto& DecrementRow() noexcept { position.row--; Win_ID_From_Position(); return *this; }
