@@ -3,9 +3,6 @@
 #ifdef _WINDOWS
 #include "Utilities.h"
 #include "__Table.h"
-#ifdef _WIN64
-// GWL_WNDPROC -> GWLP_WNDPROC
-#endif // _WIN64
 
 using namespace std;
 using namespace RYANS_UTILITIES;
@@ -51,7 +48,7 @@ void WINDOWS_TABLE::InitializeTable() noexcept {
 		CreateNewCell({ 5, 3 }, "=AVERAGE( &R3C1, &R3C2, &R3C3 )"s);
 	}
 
-	auto startingCell = WINDOWS_TABLE::CELL_ID{ CELL::CELL_POSITION{ 1, 1 } };
+	auto startingCell = CELL_ID{ CELL::CELL_POSITION{ 1, 1 } };
 	SetFocus(startingCell);	// Pick an arbitrary starting cell to avoid error where a cell is created with no position by clicking straight into upper entry bar.
 }
 
@@ -70,7 +67,7 @@ WINDOWS_TABLE::~WINDOWS_TABLE() { }		// Hook for any on-exit logic
 // Create a new row of cells at bottom edge.
 void WINDOWS_TABLE::AddRow() noexcept {
 	auto tempVec = vector<HWND>{ };
-	auto cell_ID = WINDOWS_TABLE::CELL_ID{ };
+	auto cell_ID = CELL_ID{ };
 	cell_ID.SetRow(++numRows).SetColumn(0);
 	//cell_ID.SetRow(origin.row + ++numRows);
 
@@ -89,7 +86,7 @@ void WINDOWS_TABLE::AddRow() noexcept {
 
 // Create a new column of cells at right edge.
 void WINDOWS_TABLE::AddColumn() noexcept {
-	auto cell_ID = WINDOWS_TABLE::CELL_ID{ };
+	auto cell_ID = CELL_ID{ };
 	cell_ID.SetRow(0).SetColumn(++numColumns);
 	//cell_ID.SetColumn(origin.column + ++numColumns);
 
@@ -108,7 +105,7 @@ void WINDOWS_TABLE::AddColumn() noexcept {
 
 // Remove bottom row of cells.
 void WINDOWS_TABLE::RemoveRow() noexcept {
-	auto id = WINDOWS_TABLE::CELL_ID{ };
+	auto id = CELL_ID{ };
 	auto h = HWND{ id.SetRow(numRows) };
 	while (id.GetColumn() <= numColumns) { DestroyWindow(h); h = id.IncrementColumn(); }	// Increment through row and destroy cells
 	numRows--;
@@ -116,7 +113,7 @@ void WINDOWS_TABLE::RemoveRow() noexcept {
 
 // Remove right column of cells.
 void WINDOWS_TABLE::RemoveColumn() noexcept {
-	auto id = WINDOWS_TABLE::CELL_ID{ };
+	auto id = CELL_ID{ };
 	auto h = HWND{ id.SetRow(numRows) };
 	while (id.GetRow() <= numRows) { DestroyWindow(h); h = id.IncrementRow(); }	// Increment through column and destroy cells
 	numColumns--;
@@ -150,7 +147,7 @@ void WINDOWS_TABLE::Resize() noexcept {
 // Update cell text.
 void WINDOWS_TABLE::UpdateCell(const CELL::CELL_POSITION position) const noexcept {
 	auto cell = cellData.GetCellProxy(position);
-	auto id = WINDOWS_TABLE::CELL_ID{ position };
+	auto id = CELL_ID{ position };
 	auto text = wstring{ };
 	!cell ? text = L""s : text = string_to_wstring(cell->GetOutput());
 	SetWindowText(id, text.c_str());
@@ -158,7 +155,7 @@ void WINDOWS_TABLE::UpdateCell(const CELL::CELL_POSITION position) const noexcep
 
 // Redraw table.
 void WINDOWS_TABLE::Redraw() const noexcept {
-	/*auto id = WINDOWS_TABLE::CELL_ID(origin);
+	/*auto id = CELL_ID(origin);
 
 	while (id.GetColumn() < numColumns) {
 		id.SetColumn(id.GetColumn() + 1);
@@ -167,7 +164,7 @@ void WINDOWS_TABLE::Redraw() const noexcept {
 }
 
 void WINDOWS_TABLE::FocusCell(const CELL::CELL_POSITION pos) const noexcept {
-	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	auto id = CELL_ID{ pos };
 	auto cell = cellData.GetCellProxy(pos);
 	auto text = wstring{ };
 	mostRecentCell = pos;
@@ -187,7 +184,7 @@ void WINDOWS_TABLE::FocusCell(const CELL::CELL_POSITION pos) const noexcept {
 }
 
 void WINDOWS_TABLE::UnfocusCell(const CELL::CELL_POSITION pos)  const noexcept {
-	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	auto id = CELL_ID{ pos };
 	auto text = Edit_Box_to_Wstring(id);
 	CreateNewCell(pos, wstring_to_string(text));	// Create new cell
 }
@@ -195,13 +192,13 @@ void WINDOWS_TABLE::UnfocusCell(const CELL::CELL_POSITION pos)  const noexcept {
 void WINDOWS_TABLE::FocusEntryBox() const noexcept {
 	if (posTargetCell != CELL::CELL_POSITION{ }) { return; }	// If there is a target, don't reset text
 	LockTargetCell(mostRecentCell);								// Lock onto target cell
-	auto id = WINDOWS_TABLE::CELL_ID{ mostRecentCell };
+	auto id = CELL_ID{ mostRecentCell };
 	auto text = Edit_Box_to_Wstring(id);
 	SetWindowText(h_Text_Edit_Bar, text.c_str());				// Set text to that of target cell to continue editing
 }
 
 void WINDOWS_TABLE::UnfocusEntryBox(const CELL::CELL_POSITION pos) const noexcept {
-	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	auto id = CELL_ID{ pos };
 	if (posTargetCell != CELL::CELL_POSITION{ } && pos != posTargetCell) {
 		auto out = wstring{ L"&" };
 		out += L"R" + to_wstring(id.GetRow());
@@ -212,25 +209,25 @@ void WINDOWS_TABLE::UnfocusEntryBox(const CELL::CELL_POSITION pos) const noexcep
 }
 
 void WINDOWS_TABLE::FocusUp1(const CELL::CELL_POSITION pos) const noexcept {
-	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	auto id = CELL_ID{ pos };
 	if (id.GetRow() == 1) { return; }			// Stop at bottom edge
 	SetFocus(id.DecrementRow());				// Decrement row and set focus to new cell
 }
 
 void WINDOWS_TABLE::FocusDown1(const CELL::CELL_POSITION pos) const noexcept {
-	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	auto id = CELL_ID{ pos };
 	if (id.GetRow() >= table->GetNumRows()) { /*winTable->origin.column++; winTable->Resize();*/ return; }		// Stop at top edge
 	SetFocus(id.IncrementRow());	// Increment row and set focus to new cell
 }
 
 void WINDOWS_TABLE::FocusRight1(const CELL::CELL_POSITION pos) const noexcept {
-	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	auto id = CELL_ID{ pos };
 	if (id.GetColumn() >= table->GetNumColumns()) { /*winTable->origin.column++; winTable->Resize();*/ return; }	// Stop at right edge
 	SetFocus(id.IncrementColumn());				// Increment column and set focus to new cell
 }
 
 void WINDOWS_TABLE::FocusLeft1(const CELL::CELL_POSITION pos) const noexcept {
-	auto id = WINDOWS_TABLE::CELL_ID{ pos };
+	auto id = CELL_ID{ pos };
 	if (id.GetColumn() == 1) { return; }		// Stop at left edge
 	SetFocus(id.DecrementColumn());				// Decrement column and set focus to new cell
 }
