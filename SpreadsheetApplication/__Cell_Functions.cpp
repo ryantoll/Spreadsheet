@@ -19,8 +19,7 @@ shared_ptr<FUNCTION> MatchNameToFunction(const string& inputText, vector<shared_
 	else if (inputText == "INVERSE"s) { return make_shared<INVERSE>(std::move(args)); }
 	else if (inputText == "RECIPROCAL"s) { return make_shared<RECIPROCAL>(std::move(args)); }
 	else if (inputText == "PI"s) { return make_shared<PI>(); }
-	//else { return make_shared<FUNCTION>(std::move(args)); }
-	else { throw invalid_argument("Error parsing input text."); }	/*Set error flag*/
+	else { return make_shared<FUNCTION>(std::move(args)); }
 }
 
 // As I write this, I realize how complicated this parsing can become.
@@ -134,7 +133,7 @@ bool REFERENCE_ARGUMENT::UpdateArgument() noexcept {
 	auto refCell = parentContainer->GetCellProxy(referencePosition);
 	try {
 		if (!refCell || refCell->GetPosition() == parentPosition) { throw invalid_argument{ "Reference Error" }; }	// Check that value exists and is not circular reference
-		auto nValue = stod(refCell->GetRawContent());
+		auto nValue = stod(refCell->GetOutput());
 		SetValue(nValue);	// Stored value may need to be tracked separately from display value eventually
 		nValue == storedArgument ? stillValid = true : stillValid = false;
 	}

@@ -152,8 +152,11 @@ CELL::CELL_POSITION ReferenceStringToCellPosition(const string& refString) {
 
 // Subscribe to updates on referenced cell once it's position is determined
 void REFERENCE_CELL::InitializeCell() noexcept {
-	referencePosition = ReferenceStringToCellPosition(GetRawContent());
-	SubscribeToCell(referencePosition);
+	try {
+		referencePosition = ReferenceStringToCellPosition(GetRawContent());
+		SubscribeToCell(referencePosition);
+	}
+	catch (...){ error = true; }
 }
 
 // Override default error behavior.
@@ -177,7 +180,7 @@ void FUNCTION_CELL::InitializeCell() noexcept {
 		func = make_shared<FUNCTION>(std::move(vArgs));
 		storedValue = func->Get();
 	}
-	catch (...) { CELL::CELL_FACTORY::NewCell(parentContainer, position, "'" + GetRawContent()); }
+	catch (...) { func = make_shared<FUNCTION>(); error = true; }
 }
 
 // Recalculate function when an underlying reference argument is changed.
