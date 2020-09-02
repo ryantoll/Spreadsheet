@@ -2,6 +2,7 @@
 #define TABLE_CLASS_H
 #include "stdafx.h"
 #include "__Cell.h"
+#include "__WINDOW.h"
 
 class TABLE_BASE;
 inline auto table = std::unique_ptr<TABLE_BASE>{ };
@@ -46,7 +47,7 @@ public:
 // Windows-specific code is segmented with a preprocessor command
 // Code for the appropriate system can be selected by this means
 #ifdef _WINDOWS
-inline HWND hTable, h_Text_Edit_Bar;
+inline WINDOWS_GUI::WINDOW m_Table, m_Text_Edit_Bar;
 inline WNDPROC EditHandler;
 LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK EntryBarWindowProc(HWND, UINT, WPARAM, LPARAM);
@@ -138,7 +139,7 @@ public:
 	auto& DecrementColumn() noexcept { position.column--; Win_ID_From_Position(); return *this; }
 
 	operator CELL::CELL_POSITION() const noexcept { return position; }				// Allow for implicit conversion to CELL_POSITION
-	operator HWND() const noexcept { return GetDlgItem(hTable, windowID); }			// Allow for implicit conversion to HWND
+	operator HWND() const noexcept { return GetDlgItem(m_Table, windowID); }		// Allow for implicit conversion to HWND
 	operator HMENU() const noexcept { return reinterpret_cast<HMENU>(windowID); }	// Allow for implicit conversion to HMENU
 };
 

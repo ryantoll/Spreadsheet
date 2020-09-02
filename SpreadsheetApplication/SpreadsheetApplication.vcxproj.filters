@@ -54,6 +54,9 @@
     <ClInclude Include="__Cell.h">
       <Filter>Header Files\Cell</Filter>
     </ClInclude>
+    <ClInclude Include="__WINDOW.h">
+      <Filter>Header Files\Top-Level Window</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -79,6 +82,9 @@
     </ClCompile>
     <ClCompile Include="__Cell.cpp">
       <Filter>Source Files\Cell</Filter>
+    </ClCompile>
+    <ClCompile Include="__WINDOW.cpp">
+      <Filter>Source Files\Top-Level Window</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

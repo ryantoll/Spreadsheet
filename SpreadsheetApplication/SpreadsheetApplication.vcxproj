@@ -151,6 +151,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Utilities.h" />
+    <ClInclude Include="__WINDOW.h" />
     <ClInclude Include="__Cell.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SpreadsheetApplication.h" />
@@ -160,6 +161,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="About.cpp" />
+    <ClCompile Include="__WINDOW.cpp" />
     <ClCompile Include="Windows Infrastructure.cpp" />
     <ClCompile Include="SpreadsheetApplication.cpp" />
     <ClCompile Include="stdafx.cpp">

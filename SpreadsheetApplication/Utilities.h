@@ -35,6 +35,10 @@ namespace RYANS_UTILITIES {
 		return output_C_string.get();
 	}
 
+	inline std::string Edit_Box_to_String(const HWND h) {
+		return wstring_to_string(Edit_Box_to_Wstring(h));
+	}
+
 	// Append wstring to text of an Edit Box
 	inline void Append_Wstring_to_Edit_Box(HWND h, const std::wstring& text) {
 		auto sel = GetWindowTextLength(h);
