@@ -50,7 +50,6 @@ public:
 	// Users of CELL have only indirect access to CELLs since they should not be responsible for sending notifications.
 	class CELL_PROXY {
 		friend class CELL;
-		friend class CELL_FACTORY;
 		std::shared_ptr<CELL> cell;
 		auto operator*() const noexcept { return *cell; }
 	public:
@@ -73,9 +72,10 @@ public:
 	// Changes may cascade, so notifications need to handle that effectively.
 	// Stores a set of observers for each subject.
 	// Automatically synchronizes data access for threading (even for non-const functions).
+	// While not needed in this use case, it is still valuable for demonstration purposes and may be used later.
 	// Uses a double layer of encapsulation to provide different levels of access to different clients.
 	// Clients of CELL class get a largely opaque data structure that only provides indirect access to cells through a proxy.
-	// CELL & CELL_FACTORY need some extra privilages to manage cell data, but need to be constrianed to the threadsafe interface.
+	// CELL needs some extra privilages to manage cell data, but need to be constrianed to the threadsafe interface.
 	class CELL_DATA {
 		class INNER_CELL_DATA {
 			std::unordered_map<CELL::CELL_POSITION, std::shared_ptr<CELL>, CELL_HASH> cellMap;					// Cell data
@@ -93,19 +93,15 @@ public:
 		void UnsubscribeFromCell(const CELL_POSITION, const CELL_POSITION) noexcept;
 	public:
 		CELL_PROXY GetCellProxy(const CELL::CELL_POSITION) noexcept;
-		friend class CELL_FACTORY;
 		friend class CELL;
 		friend struct REFERENCE_ARGUMENT;
 	};
 
-	// Internal "Singleton" factory, which has implicit access to private and protected CELL members.
-	// NewCell() member function should be fixed for consistency with existing cell types.
-	// Factory should be open to extention to support new cell types, defaulting to NewCell().
-	class CELL_FACTORY {
-	public:
-		static CELL_PROXY NewCell(CELL_DATA*, const CELL_POSITION, const std::string&) noexcept;
-		static void RecreateCell(CELL_DATA*, const CELL_PROXY&, const CELL_POSITION) noexcept;
-	};
+	// "Factory" function to create new cells
+	// This was previously written as a class, but has devolved over time as it is only a single function in practice
+	// A function parallels the "Singleton" pattern, but implies that users cannot extend it through inheritance
+	static CELL_PROXY NewCell(CELL_DATA*, const CELL_POSITION, const std::string&) noexcept;
+	static void RecreateCell(CELL_DATA*, const CELL_PROXY&, const CELL_POSITION) noexcept;
 
 protected:
 	CELL() { }		// Hide constructor to force usage of factory function

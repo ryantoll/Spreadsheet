@@ -6,7 +6,7 @@
 using namespace std;
 using namespace RYANS_UTILITIES;
 
-CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(CELL_DATA* parentContainer, const CELL_POSITION position, const string& contents) noexcept {
+CELL::CELL_PROXY CELL::NewCell(CELL_DATA* parentContainer, const CELL_POSITION position, const string& contents) noexcept {
 	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
 	// but also prevents accidental errors in failing to specify a location.
 	// R == 0 || C == 0 almost certainly indicates a failure to specify one or both arguments.
@@ -57,7 +57,7 @@ CELL::CELL_PROXY CELL::CELL_FACTORY::NewCell(CELL_DATA* parentContainer, const C
 	return parentContainer->GetCellProxy(position);		// Return stored cell so that failed numerical cells return the stored fallback text cell rather than the original failed numerical cell.
 }
 
-void CELL::CELL_FACTORY::RecreateCell(CELL_DATA* parentContainer, const CELL_PROXY& cell, const CELL_POSITION pos) noexcept {
+void CELL::RecreateCell(CELL_DATA* parentContainer, const CELL_PROXY& cell, const CELL_POSITION pos) noexcept {
 	if (!cell) { parentContainer->EraseCell(pos); }			// Cell stays subscribed.
 	else { parentContainer->AssignCell(cell.cell); }
 	parentContainer->NotifyAll(pos);
@@ -168,7 +168,7 @@ void NUMERICAL_CELL::InitializeCell() noexcept {
 		for (auto c : GetRawContent()) { if (!isdigit(c) && c != '.' && c != '-') { throw invalid_argument("Error parsing input text. \nText could not be interpreted as a number"); } }
 		storedValue = stod(GetRawContent());
 	}
-	catch (...) { CELL::CELL_FACTORY::NewCell(parentContainer, position, "'" + GetRawContent()); }
+	catch (...) { CELL::NewCell(parentContainer, position, "'" + GetRawContent()); }
 }
 
 // Parse function text into actual functions.

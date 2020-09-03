@@ -49,7 +49,7 @@ void WINDOWS_TABLE::InitializeTable() noexcept {
 // Logic for Cell Windows to construct and display the appropriate CELL based upon user input string
 CELL::CELL_PROXY WINDOWS_TABLE::CreateNewCell(const CELL::CELL_POSITION pos, const string& rawInput) const noexcept {
 	auto oldCell = cellData.GetCellProxy(pos);
-	auto nCell = CELL::CELL_FACTORY::NewCell(&cellData, pos, rawInput);
+	auto nCell = CELL::NewCell(&cellData, pos, rawInput);
 	auto oldText = string{ };
 	!oldCell ? oldText = ""s : oldText = oldCell->GetRawContent();
 	if (rawInput != oldText) { undoStack.emplace_back(oldCell, nCell); redoStack.clear(); }
@@ -237,7 +237,7 @@ void WINDOWS_TABLE::Undo() const noexcept {
 	auto pos = CELL::CELL_POSITION{ };
 	if (cell) { pos = cell->GetPosition(); }
 	else { pos = otherCell->GetPosition(); }
-	CELL::CELL_FACTORY::RecreateCell(&cellData, cell, pos);			// Null cells need their position
+	CELL::RecreateCell(&cellData, cell, pos);			// Null cells need their position
 	redoStack.push_back(undoStack.back());
 	undoStack.pop_back();
 }
@@ -252,7 +252,7 @@ void WINDOWS_TABLE::Redo() const noexcept {
 	auto pos = CELL::CELL_POSITION{ };
 	if (cell) { pos = cell->GetPosition(); }
 	else { pos = otherCell->GetPosition(); }
-	CELL::CELL_FACTORY::RecreateCell(&cellData, cell, pos);
+	CELL::RecreateCell(&cellData, cell, pos);
 	undoStack.push_back(redoStack.back());
 	redoStack.pop_back();
 }
