@@ -15,17 +15,11 @@ const unsigned long id_Table_Background{ 1001 }, id_Text_Edit_Bar{ 1002 };
 // Initial window setup
 void WINDOWS_TABLE::InitializeTable() noexcept {
 	hParent = hwnd;
-	m_Table = ConstructChildWindow("static"s, hParent, id_Table_Background, hInst);		// Invisible background canvas window
-	m_Text_Edit_Bar = ConstructChildWindow("edit"s, hParent, id_Text_Edit_Bar, hInst);	// Upper edit box for input/edit of large strings
-	auto hNull = ConstructChildWindow("static"s, hParent, reinterpret_cast<HMENU>(0), hInst);		// Empty label at position R 0, C 0
-
-	// EditHandler stores the default window proceedure for all edit boxes. It only needs to be stored once.
-	// For now, I am just grabbing it once for reuse later.
-	// I expect to subclass the entry bar as well, but I don't have anything built for that yet.
-	// In the meantime, I am just setting the proceedure back to what it was once I grabbed the default.
-	EditHandler = m_Text_Edit_Bar.SetProcedure(EntryBarWindowProc);
-
-	Resize();		// Resize command will fill out the space with cell windows
+	m_Table = ConstructChildWindow("static"s, hParent, id_Table_Background, hInst);				// Invisible background canvas window
+	m_Text_Edit_Bar = ConstructChildWindow("edit"s, hParent, id_Text_Edit_Bar, hInst);			// Upper edit box for input/edit of large strings
+	auto hNull = ConstructChildWindow("static"s, m_Table, reinterpret_cast<HMENU>(0), hInst);	// Empty label at position R 0, C 0
+	EditHandler = m_Text_Edit_Bar.Procedure(EntryBarWindowProc);								// Save the default edit-box procedure for future use
+	Resize();																					// Resize command will fill out the space with cell windows
 	
 	// Insert cells upon creation (Optional)
 	if (addExampleCells) {
@@ -66,48 +60,45 @@ WINDOWS_TABLE::~WINDOWS_TABLE() { }		// Hook for any on-exit logic
 
 // Create a new row of cells at bottom edge.
 void WINDOWS_TABLE::AddRow() noexcept {
-	auto tempVec = vector<HWND>{ };
-	auto cell_ID = CELL_ID{ };
-	cell_ID.Row(++numRows).Column(0);
+	auto cell_ID = CELL_ID{ }.Row(++numRows).Column(0);
 
 	// Create label for row
 	auto label = "R"s + to_string(numRows);
 	auto window = ConstructChildWindow("Static"s, m_Table, cell_ID, hInst);
 	auto pos = WINDOW_POSITION{ }.X(x0).Y(y0 + (numRows)*height);
 	auto size = WINDOW_DIMENSIONS{ }.Height(height).Width(width);
-	window.SetWindowTitle(label).MoveWindow(pos, size);
+	window.Text(label).Move(pos, size);
 
 	// Loop through creating cell windows, filling in display value if it exists
 	while (cell_ID.Column() < numColumns) {
 		cell_ID.IncrementColumn();
 		window = ConstructChildWindow("edit"s, m_Table, cell_ID, hInst);
 		pos.X(x0 + cell_ID.Column() * width).Y(y0 + (numRows)*height);
-		window.MoveWindow(pos, size);
+		window.Move(pos, size);
+		window.Procedure(CellWindowProc);
 		table->UpdateCell(cell_ID);
-		window.SetProcedure(CellWindowProc);
 	}
 }
 
 // Create a new column of cells at right edge.
 void WINDOWS_TABLE::AddColumn() noexcept {
-	auto cell_ID = CELL_ID{ };
-	cell_ID.Row(0).Column(++numColumns);
+	auto cell_ID = CELL_ID{ }.Row(0).Column(++numColumns);
 
 	// Create label for column
 	auto label = "C"s + to_string(numColumns);
 	auto window = ConstructChildWindow("Static"s, m_Table, cell_ID, hInst);
 	auto pos = WINDOW_POSITION{ }.X(x0 + numColumns * width).Y(y0);
 	auto size = WINDOW_DIMENSIONS{ }.Height(height).Width(width);
-	window.SetWindowTitle(label).MoveWindow(pos, size);
+	window.Text(label).Move(pos, size);
 
 	// Loop through creating cell windows, filling in display value if it exists
 	while (cell_ID.Row() < numRows) {
 		cell_ID.IncrementRow();
 		window = ConstructChildWindow("edit"s, m_Table, cell_ID, hInst);
 		pos.X(x0 + cell_ID.Column() * width).Y(y0 + cell_ID.Row() * height);
-		window.MoveWindow(pos, size);
+		window.Move(pos, size);
+		window.Procedure(CellWindowProc);
 		table->UpdateCell(cell_ID);
-		window.SetProcedure(CellWindowProc);
 	}
 }
 
@@ -148,17 +139,16 @@ void WINDOWS_TABLE::Resize() noexcept {
 	while (numRows > row) { RemoveRow(); }
 
 	auto size = WINDOW_DIMENSIONS{ }.Width(rect.right).Height(rect.bottom);
-	WINDOW{ m_Table }.ResizeWindow(size);								// Resize underlying canvas
-	WINDOW{ m_Text_Edit_Bar }.ResizeWindow(size.Height(height));		// Resize upper entry box
+	WINDOW{ m_Table }.Resize(size);								// Resize underlying canvas
+	WINDOW{ m_Text_Edit_Bar }.Resize(size.Height(height));		// Resize upper entry box
 }
 
 // Update cell text.
 void WINDOWS_TABLE::UpdateCell(const CELL::CELL_POSITION position) const noexcept {
 	auto cell = cellData.GetCellProxy(position);
-	auto id = CELL_ID{ position };
-	auto text = wstring{ };
-	!cell ? text = L""s : text = string_to_wstring(cell->GetOutput());
-	SetWindowText(id, text.c_str());
+	auto text = string{ };
+	!cell ? text = ""s : text = cell->GetOutput();
+	WINDOW{ CELL_ID{ position } }.Text(text);
 }
 
 // Redraw table.
@@ -178,66 +168,65 @@ void WINDOWS_TABLE::FocusCell(const CELL::CELL_POSITION pos) const noexcept {
 	mostRecentCell = pos;
 	if (pos == posTargetCell) {							// If returning focus from upper-entry box...
 		ReleaseTargetCell();							// Release focus when selecting straight to target to open it up for new target selection.
-		text = Edit_Box_to_String(m_Text_Edit_Bar);		// Text for cell creation comes from upper entry bar
-		CreateNewCell(pos, text);						// Create new cell
+		CreateNewCell(pos, m_Text_Edit_Bar.Text());		// Create new cell from upper entry bar text
 		window.Focus();									// Set focus to self to avoid odd errors with changing focus to next cell
 	}
 	else if (cell) {									// If cell exists
 		text = cell->GetRawContent();					// Grab display text of cell
-		window.SetWindowTitle(text);					// Show raw content rather than display value when cell is selected for editing.
-		window.Message(EM_SETSEL, 0, -1);				// Select all within cell.
-		m_Text_Edit_Bar.SetWindowTitle(text);			// Otherwise, display raw content in entry bar.
+		window.Text(text);								// Show raw content rather than display value when cell is selected for editing
+		window.Message(EM_SETSEL, 0, -1);				// Select all within cell
+		m_Text_Edit_Bar.Text(text);						// Display raw content in entry bar
 	}
-	else { m_Text_Edit_Bar.SetWindowTitle(""); }		// Otherwise, clear entry bar.
+	else { m_Text_Edit_Bar.Text(""s); }					// Otherwise, clear entry bar.
 }
 
-void WINDOWS_TABLE::UnfocusCell(const CELL::CELL_POSITION pos)  const noexcept {
-	auto id = CELL_ID{ pos };
-	auto text = Edit_Box_to_Wstring(id);
-	CreateNewCell(pos, wstring_to_string(text));	// Create new cell
+void WINDOWS_TABLE::UnfocusCell(const CELL::CELL_POSITION pos) const noexcept {
+	CreateNewCell(pos, WINDOW{ CELL_ID{ pos } }.Text());
 }
 
+// Set text to that of target cell to continue editing
+// If there is a target, don't reset text
 void WINDOWS_TABLE::FocusEntryBox() const noexcept {
-	if (posTargetCell != CELL::CELL_POSITION{ }) { return; }	// If there is a target, don't reset text
-	LockTargetCell(mostRecentCell);								// Lock onto target cell
-	auto id = CELL_ID{ mostRecentCell };
-	auto text = Edit_Box_to_String(id);
-	m_Text_Edit_Bar.SetWindowTitle(text);						// Set text to that of target cell to continue editing
+	if (posTargetCell != CELL::CELL_POSITION{ }) { return; }	
+	LockTargetCell(mostRecentCell);
+	auto text = WINDOW{ CELL_ID{ mostRecentCell } }.Text();
+	m_Text_Edit_Bar.Text(text);
 }
 
+// If user clicks another cell while entering text, insert a reference to the selected cell
 void WINDOWS_TABLE::UnfocusEntryBox(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = CELL_ID{ pos };
 	if (posTargetCell != CELL::CELL_POSITION{ } && pos != posTargetCell) {
 		auto out = wstring{ L"&" };
 		out += L"R" + to_wstring(id.Row());
 		out += L"C" + to_wstring(id.Column());
-		m_Text_Edit_Bar.Focus();															// Set focus back to upper edit bar
-		m_Text_Edit_Bar.Message(EM_REPLACESEL, 0, reinterpret_cast<LPARAM>(out.c_str()));	// Get row and column of selected cell and add reference text to upper edit bar
+		m_Text_Edit_Bar.Focus();
+		m_Text_Edit_Bar.Message(EM_REPLACESEL, 0, reinterpret_cast<LPARAM>(out.c_str()));
 	}
 }
 
 void WINDOWS_TABLE::FocusUp1(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = CELL_ID{ pos };
-	if (id.Row() == 1) { return; }			// Stop at bottom edge
-	SetFocus(id.DecrementRow());				// Decrement row and set focus to new cell
+	if (id.Row() == 1) { return; }
+	SetFocus(id.DecrementRow());
 }
 
 void WINDOWS_TABLE::FocusDown1(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = CELL_ID{ pos };
-	if (id.Row() >= table->GetNumRows()) { /*winTable->origin.column++; winTable->Resize();*/ return; }		// Stop at top edge
-	SetFocus(id.IncrementRow());	// Increment row and set focus to new cell
+	if (id.Row() >= table->GetNumRows()) { return; }
+	SetFocus(id.IncrementRow());
 }
 
 void WINDOWS_TABLE::FocusRight1(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = CELL_ID{ pos };
-	if (id.Column() >= table->GetNumColumns()) { /*winTable->origin.column++; winTable->Resize();*/ return; }	// Stop at right edge
-	SetFocus(id.IncrementColumn());				// Increment column and set focus to new cell
+	if (id.Column() >= table->GetNumColumns()) { return; }
+	SetFocus(id.IncrementColumn());
 }
 
 void WINDOWS_TABLE::FocusLeft1(const CELL::CELL_POSITION pos) const noexcept {
 	auto id = CELL_ID{ pos };
-	if (id.Column() == 1) { return; }		// Stop at left edge
-	SetFocus(id.DecrementColumn());				// Decrement column and set focus to new cell
+	if (id.Column() == 1) { return; }
+	SetFocus(id.DecrementColumn());
 }
 
 void WINDOWS_TABLE::LockTargetCell(const CELL::CELL_POSITION pos) const noexcept { if (posTargetCell != CELL::CELL_POSITION{ }) { return; } posTargetCell = pos; }

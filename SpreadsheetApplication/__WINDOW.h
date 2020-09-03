@@ -51,33 +51,41 @@ namespace WINDOWS_GUI {
 		WINDOW& operator=(WINDOW&&) = default;
 		virtual ~WINDOW() { }
 
-		HWND GetHandle() const noexcept { return m_Handle; }
+		HWND Handle() const noexcept { return m_Handle; }
 		operator HWND() const noexcept { return m_Handle; }			// Allow for implicit conversion to HWND
-		HWND GetParent() const noexcept { return m_hParent; }
-		HMENU GetID() const noexcept { return m_menu; }
-		HMENU GetMenu() const noexcept { return m_menu; }
-		WINDOW& Focus() { SetFocus(m_Handle); return *this; }
-		void Destroy() { DestroyWindow(m_Handle); }
-		RECT GetClientRect() noexcept { auto rekt = RECT{ }; ::GetClientRect(m_Handle, &rekt); return rekt; }
-		WINDOW& SetWindowTitle(const std::string& title) noexcept { SetWindowText(m_Handle, string_to_wstring(title).c_str()); return *this; }
-		WINDOW& Message(UINT message, WPARAM wparam, LPARAM lparam) { SendMessage(m_Handle, message, wparam, lparam); return *this; }
+		HWND Parent() const noexcept { return m_hParent; }
+		HMENU ID() const noexcept { return m_menu; }
+		HMENU Menu() const noexcept { return m_menu; }
+		void Destroy() noexcept { DestroyWindow(m_Handle); }
+		RECT GetClientRect() const noexcept { auto rekt = RECT{ }; ::GetClientRect(m_Handle, &rekt); return rekt; }
+		WINDOW& Focus() noexcept { SetFocus(m_Handle); return *this; }
+		const WINDOW& Focus() const noexcept { SetFocus(m_Handle); return *this; }
+		WINDOW& Text(const std::string& title) noexcept { SetWindowText(m_Handle, string_to_wstring(title).c_str()); return *this; }
+		const WINDOW& Text(const std::string& title) const noexcept { SetWindowText(m_Handle, string_to_wstring(title).c_str()); return *this; }
+		WINDOW& Wtext(const std::wstring& title) noexcept { SetWindowText(m_Handle, title.c_str()); return *this; }
+		const WINDOW& Wtext(const std::wstring& title) const noexcept { SetWindowText(m_Handle, title.c_str()); return *this; }
+		WINDOW& Message(UINT message, WPARAM wparam, LPARAM lparam) noexcept { SendMessage(m_Handle, message, wparam, lparam); return *this; }
+		const WINDOW& Message(UINT message, WPARAM wparam, LPARAM lparam) const noexcept { SendMessage(m_Handle, message, wparam, lparam); return *this; }
+
+		std::string Text() const noexcept { Edit_Box_to_String(m_Handle); }
+		std::wstring Wtext() const noexcept { Edit_Box_to_Wstring(m_Handle); }
 
 		// Move, optionally resize, optionally repaint
 		// Specifying repaint == true requires that size be given as well, even if it is default-constructed
-		WINDOW& MoveWindow(const WINDOW_POSITION pos, const WINDOW_DIMENSIONS size = WINDOW_DIMENSIONS{ }, const bool repaint = true) noexcept {
+		WINDOW& Move(const WINDOW_POSITION pos, const WINDOW_DIMENSIONS size = WINDOW_DIMENSIONS{ }, const bool repaint = true) noexcept {
 			::MoveWindow(m_Handle, pos.X(), pos.Y(), size.Width(), size.Height(), repaint);
 			return *this;
 		}
 
 		// Move, optionally resize, optionally repaint
 		// Specifying repaint == true requires that size be given as well, even if it is default-constructed
-		WINDOW& ResizeWindow(const WINDOW_DIMENSIONS size, const WINDOW_POSITION pos = WINDOW_POSITION{ }, const bool repaint = true) noexcept {
-			return MoveWindow(pos, size, repaint);
+		WINDOW& Resize(const WINDOW_DIMENSIONS size, const WINDOW_POSITION pos = WINDOW_POSITION{ }, const bool repaint = true) noexcept {
+			return Move(pos, size, repaint);
 		}
 		
 		// Set the window procedure, returning the previous procedure
 		// This can be used for sub-classing a window to add additional behavior
-		WNDPROC SetProcedure(WNDPROC proc) noexcept { 
+		WNDPROC Procedure(WNDPROC proc) noexcept { 
 			return reinterpret_cast<WNDPROC>(SetWindowLongPtr(m_Handle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(proc)));
 		}
 	};
