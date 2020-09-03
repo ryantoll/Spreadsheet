@@ -67,8 +67,8 @@ namespace WINDOWS_GUI {
 		WINDOW& Message(UINT message, WPARAM wparam, LPARAM lparam) noexcept { SendMessage(m_Handle, message, wparam, lparam); return *this; }
 		const WINDOW& Message(UINT message, WPARAM wparam, LPARAM lparam) const noexcept { SendMessage(m_Handle, message, wparam, lparam); return *this; }
 
-		std::string Text() const noexcept { Edit_Box_to_String(m_Handle); }
-		std::wstring Wtext() const noexcept { Edit_Box_to_Wstring(m_Handle); }
+		std::string Text() const noexcept { return Edit_Box_to_String(m_Handle); }
+		std::wstring Wtext() const noexcept { return Edit_Box_to_Wstring(m_Handle); }
 
 		// Move, optionally resize, optionally repaint
 		// Specifying repaint == true requires that size be given as well, even if it is default-constructed
