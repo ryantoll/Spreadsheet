@@ -58,6 +58,8 @@ CELL::CELL_PROXY WINDOWS_TABLE::CreateNewCell(const CELL::CELL_POSITION pos, con
 
 WINDOWS_TABLE::~WINDOWS_TABLE() { }		// Hook for any on-exit logic
 
+void WINDOWS_TABLE::Redraw() const noexcept { }		// Hook for table redraw logic
+
 // Create a new row of cells at bottom edge.
 void WINDOWS_TABLE::AddRow() noexcept {
 	auto cell_ID = CELL_ID{ }.Row(++numRows).Column(0);
@@ -143,7 +145,6 @@ void WINDOWS_TABLE::Resize() noexcept {
 	WINDOW{ m_Text_Edit_Bar }.Resize(size.Height(height));		// Resize upper entry box
 }
 
-// Update cell text.
 void WINDOWS_TABLE::UpdateCell(const CELL::CELL_POSITION position) const noexcept {
 	auto cell = cellData.GetCellProxy(position);
 	auto text = string{ };
@@ -151,16 +152,7 @@ void WINDOWS_TABLE::UpdateCell(const CELL::CELL_POSITION position) const noexcep
 	WINDOW{ CELL_ID{ position } }.Text(text);
 }
 
-// Redraw table.
-void WINDOWS_TABLE::Redraw() const noexcept {
-	/*auto id = CELL_ID(origin);
-
-	while (id.GetColumn() < numColumns) {
-		id.SetColumn(id.GetColumn() + 1);
-		SetWindowText();
-	}*/
-}
-
+// Manage Focusing a cell in various contexts
 void WINDOWS_TABLE::FocusCell(const CELL::CELL_POSITION pos) const noexcept {
 	auto window = WINDOW{ CELL_ID{ pos } };
 	auto cell = cellData.GetCellProxy(pos);
@@ -235,6 +227,9 @@ void WINDOWS_TABLE::ReleaseTargetCell() const noexcept { posTargetCell = CELL::C
 
 CELL::CELL_POSITION WINDOWS_TABLE::TargetCellGet() const noexcept { return posTargetCell; }
 
+// Transition: Cell B -> Cell A
+// Move the transition pair {Cell A -> Cell B} onto redo stack
+// If Cell A is NULL, then infer its position from Cell B
 void WINDOWS_TABLE::Undo() const noexcept {
 	if (undoStack.empty()) { return; }
 	auto cell = undoStack.back().first;
@@ -247,6 +242,9 @@ void WINDOWS_TABLE::Undo() const noexcept {
 	undoStack.pop_back();
 }
 
+// Transition: Cell A -> Cell B
+// Move the transition pair {Cell A -> Cell B} onto undo stack
+// If Cell B is NULL, then infer its position from the Cell A
 void WINDOWS_TABLE::Redo() const noexcept {
 	if (redoStack.empty()) { return; }
 	auto cell = redoStack.back().second;

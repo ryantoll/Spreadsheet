@@ -10,6 +10,7 @@
 // Each choice offers different tradeoffs of time/space usage and may require benchmarking to decide.
 // First used was an ordered map, which could skip empty cells and offered decent operation speed O( log(n) ).
 // Next, an unordered map (hash table) was used to get constant time O(1) expected operation speed.
+// However, hashing may take long enough that O(1) > O( log(n) ) for small values of n.
 // Also, a 2-D array could be used to get O(1) speed plus cache localization at the cost of many empty slots.
 // CELL_POSITION defines it's own operator< and operator== for use in map sorting as well as a hash function.
 // The choice of column sorting preempting row sorting is arbitrary. Either way is fine so long as it is consistent.
