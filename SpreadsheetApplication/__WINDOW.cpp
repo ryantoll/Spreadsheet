@@ -6,7 +6,7 @@ namespace WINDOWS_GUI {
 
 	// Create window by passing parameters to WINDOW(HWND) constructor
 	WINDOW ConstructChildWindow(const string& type, HWND parent, HMENU id, HINSTANCE inst) {
-		auto h = CreateWindow(string_to_wstring(type).c_str(), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, 0, 0, 0, 0, parent, id, inst, NULL);
+		auto h = CreateWindow(StringToWstring(type).c_str(), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, 0, 0, 0, 0, parent, id, inst, NULL);
 		return WINDOW{ h };
 	}
 
@@ -15,7 +15,7 @@ namespace WINDOWS_GUI {
 	}
 
 	WINDOW ConstructTopLevelWindow(const string& type, HINSTANCE inst, const string& title) {
-		auto h = CreateWindow(string_to_wstring(type).c_str(), string_to_wstring(title).c_str(), WS_OVERLAPPEDWINDOW, 0, 0, 0, 0, nullptr, nullptr, inst, NULL);
+		auto h = CreateWindow(StringToWstring(type).c_str(), StringToWstring(title).c_str(), WS_OVERLAPPEDWINDOW, 0, 0, 0, 0, nullptr, nullptr, inst, NULL);
 		return WINDOW{ h };
 	}
 

@@ -47,8 +47,8 @@ public:
 // Windows-specific code is segmented with a preprocessor command
 // Code for the appropriate system can be selected by this means
 #ifdef _WINDOWS
-inline WINDOWS_GUI::WINDOW m_Table, m_Text_Edit_Bar;
-inline WNDPROC EditHandler;
+inline WINDOWS_GUI::WINDOW m_Table, m_TextEditBar;
+inline WNDPROC m_EditHandler;
 LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK EntryBarWindowProc(HWND, UINT, WPARAM, LPARAM);
 
@@ -58,28 +58,28 @@ public:
 	class CELL_ID;
 	class CELL_WINDOW;
 protected:
-	unsigned int numColumns{ 0 };
-	unsigned int numRows{ 0 };
-	int width{ 75 };
-	int height{ 25 };
-	int x0{ 0 };
-	int y0{ 25 };
+	unsigned int m_NumColumns{ 0 };
+	unsigned int m_NumRows{ 0 };
+	int m_Width{ 75 };
+	int m_Height{ 25 };
+	int m_X0{ 0 };
+	int m_Y0{ 25 };
 	HWND hParent;
-	mutable CELL::CELL_DATA cellData;
-	mutable CELL::CELL_POSITION origin{ 0, 0 };		// Origin is the "off-the-begining" cell to the upper-left of the upper-left cell
-	mutable CELL::CELL_POSITION posTargetCell{ };	// Tracks position of cell currently associated with upper edit box, may be blank
-	mutable CELL::CELL_POSITION mostRecentCell{ };	// Tracks position of most recently selected cell for either target selection or new cell creation
+	mutable CELL::CELL_DATA m_CellData;
+	mutable CELL::CELL_POSITION m_Origin{ 0, 0 };		// Origin is the "off-the-begining" cell to the upper-left of the upper-left cell
+	mutable CELL::CELL_POSITION m_PosTargetCell{ };	// Tracks position of cell currently associated with upper edit box, may be blank
+	mutable CELL::CELL_POSITION m_MostRecentCell{ };	// Tracks position of most recently selected cell for either target selection or new cell creation
 	
-	mutable std::vector<std::pair<CELL::CELL_PROXY, CELL::CELL_PROXY>> undoStack{ };
-	mutable std::vector<std::pair<CELL::CELL_PROXY, CELL::CELL_PROXY>> redoStack{ };
+	mutable std::vector<std::pair<CELL::CELL_PROXY, CELL::CELL_PROXY>> m_UndoStack{ };
+	mutable std::vector<std::pair<CELL::CELL_PROXY, CELL::CELL_PROXY>> m_RedoStack{ };
 public:
 	~WINDOWS_TABLE();						// Hook for any on-exit logic
 	void AddRow() noexcept override;
 	void AddColumn() noexcept override;
 	void RemoveRow() noexcept override;
 	void RemoveColumn() noexcept override;
-	unsigned int GetNumColumns() const noexcept override { return numColumns; }
-	unsigned int GetNumRows() const noexcept override { return numRows; }
+	unsigned int GetNumColumns() const noexcept override { return m_NumColumns; }
+	unsigned int GetNumRows() const noexcept override { return m_NumRows; }
 
 	void InitializeTable() noexcept override;
 	void Resize() noexcept override;

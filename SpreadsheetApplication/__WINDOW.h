@@ -56,15 +56,15 @@ namespace WINDOWS_GUI {
 		RECT GetClientRect() const noexcept { auto rekt = RECT{ }; ::GetClientRect(m_Handle, &rekt); return rekt; }
 		WINDOW& Focus() noexcept { SetFocus(m_Handle); return *this; }
 		const WINDOW& Focus() const noexcept { SetFocus(m_Handle); return *this; }
-		WINDOW& Text(const std::string& title) noexcept { SetWindowText(m_Handle, string_to_wstring(title).c_str()); return *this; }
-		const WINDOW& Text(const std::string& title) const noexcept { SetWindowText(m_Handle, string_to_wstring(title).c_str()); return *this; }
+		WINDOW& Text(const std::string& title) noexcept { SetWindowText(m_Handle, StringToWstring(title).c_str()); return *this; }
+		const WINDOW& Text(const std::string& title) const noexcept { SetWindowText(m_Handle, StringToWstring(title).c_str()); return *this; }
 		WINDOW& Wtext(const std::wstring& title) noexcept { SetWindowText(m_Handle, title.c_str()); return *this; }
 		const WINDOW& Wtext(const std::wstring& title) const noexcept { SetWindowText(m_Handle, title.c_str()); return *this; }
 		WINDOW& Message(UINT message, WPARAM wparam, LPARAM lparam) noexcept { SendMessage(m_Handle, message, wparam, lparam); return *this; }
 		const WINDOW& Message(UINT message, WPARAM wparam, LPARAM lparam) const noexcept { SendMessage(m_Handle, message, wparam, lparam); return *this; }
 
-		[[nodiscard]] std::string Text() const noexcept { return Edit_Box_to_String(m_Handle); }
-		[[nodiscard]] std::wstring Wtext() const noexcept { return Edit_Box_to_Wstring(m_Handle); }
+		[[nodiscard]] std::string Text() const noexcept { return EditBoxToString(m_Handle); }
+		[[nodiscard]] std::wstring Wtext() const noexcept { return EditBoxToWstring(m_Handle); }
 
 		// Move, optionally resize, optionally repaint
 		// Specifying repaint == true requires that size be given as well, even if it is default-constructed
