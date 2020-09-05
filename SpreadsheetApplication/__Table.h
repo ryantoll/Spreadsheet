@@ -64,7 +64,7 @@ protected:
 	int m_Height{ 25 };
 	int m_X0{ 0 };
 	int m_Y0{ 25 };
-	HWND hParent;
+	HWND hParent{ nullptr };
 	mutable CELL::CELL_DATA m_CellData;
 	mutable CELL::CELL_POSITION m_Origin{ 0, 0 };		// Origin is the "off-the-begining" cell to the upper-left of the upper-left cell
 	mutable CELL::CELL_POSITION m_PosTargetCell{ };	// Tracks position of cell currently associated with upper edit box, may be blank
@@ -140,7 +140,7 @@ public:
 
 	operator CELL::CELL_POSITION() const noexcept { return position; }				// Allow for implicit conversion to CELL_POSITION
 	operator HWND() const noexcept { return GetDlgItem(m_Table, windowID); }		// Allow for implicit conversion to HWND
-	operator HMENU() const noexcept { return reinterpret_cast<HMENU>(windowID); }	// Allow for implicit conversion to HMENU
+	operator HMENU() const noexcept { return reinterpret_cast<HMENU>(static_cast<UINT_PTR>(windowID)); }	// Allow for implicit conversion to HMENU
 };
 
 #endif // _WINDOWS

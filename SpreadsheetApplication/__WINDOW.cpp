@@ -10,8 +10,8 @@ namespace WINDOWS_GUI {
 		return WINDOW{ h };
 	}
 
-	WINDOW ConstructChildWindow(const string& type, HWND parent, long id, HINSTANCE inst) {
-		return ConstructChildWindow(type, parent, reinterpret_cast<HMENU>(id), inst);
+	WINDOW ConstructChildWindow(const string& type, HWND parent, unsigned long id, HINSTANCE inst) {
+		return ConstructChildWindow(type, parent, reinterpret_cast<HMENU>(static_cast<UINT_PTR>(id)), inst);
 	}
 
 	WINDOW ConstructTopLevelWindow(const string& type, HINSTANCE inst, const string& title) {

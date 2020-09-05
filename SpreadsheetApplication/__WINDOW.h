@@ -87,7 +87,7 @@ namespace WINDOWS_GUI {
 	};
 
 	WINDOW ConstructChildWindow(const std::string& type, HWND parent, HMENU id, HINSTANCE inst);
-	WINDOW ConstructChildWindow(const std::string& type, HWND parent, long id, HINSTANCE inst);
+	WINDOW ConstructChildWindow(const std::string& type, HWND parent, unsigned long id, HINSTANCE inst);
 	WINDOW ConstructTopLevelWindow(const std::string& type, HINSTANCE inst, const std::string& title);
 }
 

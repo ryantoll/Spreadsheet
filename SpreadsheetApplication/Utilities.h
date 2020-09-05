@@ -12,7 +12,7 @@ namespace RYANS_UTILITIES {
 	inline std::wstring StringToWstring(const std::string& InputString) {
 		size_t n = InputString.size() + 1;
 		std::unique_ptr<wchar_t[]> OutputC_String(new wchar_t[n]);
-		MultiByteToWideChar(CP_UTF8, 0, InputString.c_str(), -1, OutputC_String.get(), n);
+		MultiByteToWideChar(CP_UTF8, 0, InputString.c_str(), -1, OutputC_String.get(), static_cast<int>(n));
 		return OutputC_String.get();
 	}
 
@@ -20,14 +20,14 @@ namespace RYANS_UTILITIES {
 	inline std::string WstringToString(const std::wstring& InputWstring) {
 		size_t n = InputWstring.size() + 1;
 		std::unique_ptr<char[]> OutputC_String(new char[n]);
-		WideCharToMultiByte(CP_UTF8, 0, InputWstring.c_str(), -1, OutputC_String.get(), n, NULL, NULL);
+		WideCharToMultiByte(CP_UTF8, 0, InputWstring.c_str(), -1, OutputC_String.get(), static_cast<int>(n), NULL, NULL);
 		return OutputC_String.get();
 	}
 
 	// Returns the wstring contained within an Edit Box
 	// May work for other window types with text or a title
 	inline std::wstring EditBoxToWstring(const HWND window) {
-		size_t n = GetWindowTextLength(window) + 1;
+		int n = GetWindowTextLength(window) + 1;
 		std::unique_ptr<wchar_t[]>OutputC_String(new wchar_t[n]);
 		GetWindowText(window, OutputC_String.get(), n);
 		return OutputC_String.get();
