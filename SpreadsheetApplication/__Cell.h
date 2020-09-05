@@ -78,8 +78,8 @@ public:
 	// CELL needs some extra privilages to manage cell data, but need to be constrianed to the threadsafe interface.
 	class CELL_DATA {
 		class INNER_CELL_DATA {
-			std::unordered_map<CELL::CELL_POSITION, std::shared_ptr<CELL>, CELL_HASH> cellMap;					// Cell data
 			std::unordered_map<CELL::CELL_POSITION, std::set<CELL::CELL_POSITION>, CELL_HASH> subscriptionMap;	// <Subject, (set of) Observers>
+			std::unordered_map<CELL::CELL_POSITION, std::shared_ptr<CELL>, CELL_HASH> cellMap;					// Cell data
 			mutable std::mutex lkSubMap, lkCellMap;
 			friend class CELL_DATA;
 		};
@@ -184,7 +184,7 @@ public:
 	void InitializeCell() noexcept override;
 	void UpdateCell() noexcept override;		// Need to add recalculate logic here for when reference cells update
 protected:
-	std::shared_ptr<ARGUMENT> func;
+	std::shared_ptr<ARGUMENT> m_Func;
 	std::shared_ptr<ARGUMENT> ParseFunctionString(std::string&);
 };
 

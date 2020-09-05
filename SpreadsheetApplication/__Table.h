@@ -13,6 +13,8 @@ inline auto table = std::unique_ptr<TABLE_BASE>{ };
 // Further abstractions may be considered in the future, such as cell windows, graphs, etc.
 class TABLE_BASE {
 public:
+	virtual ~TABLE_BASE() { }
+
 	virtual void AddRow() noexcept = 0;
 	virtual void AddColumn() noexcept = 0;
 	virtual void RemoveRow() noexcept = 0;

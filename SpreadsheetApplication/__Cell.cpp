@@ -177,10 +177,10 @@ void FUNCTION_CELL::InitializeCell() noexcept {
 	auto vArgs = vector<shared_ptr<ARGUMENT>>{ };
 	try { 
 		vArgs.push_back(ParseFunctionString(inputText));	// Recursively parse input string
-		func = make_shared<FUNCTION>(std::move(vArgs));
-		storedValue = func->Get();
+		m_Func = make_shared<FUNCTION>(std::move(vArgs));
+		storedValue = m_Func->Get();
 	}
-	catch (...) { func = make_shared<FUNCTION>(); error = true; }
+	catch (...) { m_Func = make_shared<FUNCTION>(); error = true; }
 }
 
 // Recalculate function when an underlying reference argument is changed.
@@ -188,8 +188,8 @@ void FUNCTION_CELL::UpdateCell() noexcept {
 	displayValue = "";
 	error = false;		// Reset error flag in case there was a prior error
 	try { 
-		func->UpdateArgument();
-		storedValue = func->Get();
+		m_Func->UpdateArgument();
+		storedValue = m_Func->Get();
 	}
 	catch (...) { error = true; }
 	CELL::UpdateCell();
