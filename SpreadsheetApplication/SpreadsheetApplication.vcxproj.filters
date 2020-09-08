@@ -83,9 +83,6 @@
     <ClCompile Include="__Cell.cpp">
       <Filter>Source Files\Cell</Filter>
     </ClCompile>
-    <ClCompile Include="__WINDOW.cpp">
-      <Filter>Source Files\Top-Level Window</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SpreadsheetApplication.rc">

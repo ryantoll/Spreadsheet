@@ -40,7 +40,14 @@ namespace WINDOWS_GUI {
 
 	public:
 		WINDOW() = default;
-		explicit WINDOW(HWND hWindow);
+
+		// Control existing window
+		explicit WINDOW(HWND hWindow) : m_Handle(hWindow),
+			m_hParent(reinterpret_cast<HWND>(GetWindowLongPtr(m_Handle, GWLP_HWNDPARENT))),
+			m_hInstance(reinterpret_cast<HINSTANCE>(GetWindowLongPtr(m_Handle, GWLP_HINSTANCE))),
+			m_menu(reinterpret_cast<HMENU>(GetWindowLongPtr(m_Handle, GWLP_ID)))
+		{ }
+
 		WINDOW(const WINDOW&) = default;
 		WINDOW(WINDOW&&) = default;
 		WINDOW& operator=(const WINDOW&) = default;
@@ -86,9 +93,23 @@ namespace WINDOWS_GUI {
 		}
 	};
 
-	WINDOW ConstructChildWindow(const std::string& type, HWND parent, HMENU id, HINSTANCE inst);
-	WINDOW ConstructChildWindow(const std::string& type, HWND parent, unsigned long id, HINSTANCE inst);
-	WINDOW ConstructTopLevelWindow(const std::string& type, HINSTANCE inst, const std::string& title);
+	// Create a child window
+	inline WINDOW ConstructChildWindow(const std::string& type, HWND parent, HMENU id) {
+		auto h = CreateWindow(StringToWstring(type).c_str(), L"", WS_CHILD | WS_BORDER | WS_VISIBLE, 
+			0, 0, 0, 0, parent, id, reinterpret_cast<HINSTANCE>(GetWindowLongPtr(parent, GWLP_HINSTANCE)), NULL);
+		return WINDOW{ h };
+	}
+
+	// Create a child window
+	inline WINDOW ConstructChildWindow(const std::string& type, HWND parent, unsigned long id) {
+		return ConstructChildWindow(type, parent, reinterpret_cast<HMENU>(static_cast<UINT_PTR>(id)));
+	}
+
+	// Create a window without a parent
+	inline WINDOW ConstructTopLevelWindow(const std::string& type, HINSTANCE inst, const std::string& title = "") {
+		auto h = CreateWindow(StringToWstring(type).c_str(), StringToWstring(title).c_str(), WS_OVERLAPPEDWINDOW, 0, 0, 0, 0, nullptr, nullptr, inst, NULL);
+		return WINDOW{ h };
+	}
 }
 
 #endif // !WINDOWS_GUI_FOUNDATION_LIBRARY

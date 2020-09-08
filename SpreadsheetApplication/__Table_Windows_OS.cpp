@@ -15,11 +15,11 @@ const unsigned long id_Table_Background{ 1001 }, id_Text_Edit_Bar{ 1002 };
 // Initial window setup
 void WINDOWS_TABLE::InitializeTable() noexcept {
 	hParent = g_hWnd;
-	m_Table = ConstructChildWindow("static"s, hParent, id_Table_Background, g_hInst);			// Invisible background canvas window
-	m_TextEditBar = ConstructChildWindow("edit"s, hParent, id_Text_Edit_Bar, g_hInst);			// Upper edit box for input/edit of large strings
-	auto hNull = ConstructChildWindow("static"s, m_Table, reinterpret_cast<HMENU>(0), g_hInst);	// Empty label at position R 0, C 0
-	m_EditHandler = m_TextEditBar.Procedure(EntryBarWindowProc);								// Save the default edit-box procedure for future use
-	Resize();																					// Resize command will fill out the space with cell windows
+	m_Table = ConstructChildWindow("static"s, hParent, id_Table_Background);			// Invisible background canvas window
+	m_TextEditBar = ConstructChildWindow("edit"s, hParent, id_Text_Edit_Bar);			// Upper edit box for input/edit of large strings
+	auto hNull = ConstructChildWindow("static"s, m_Table, reinterpret_cast<HMENU>(0));	// Empty label at position R 0, C 0
+	m_EditHandler = m_TextEditBar.Procedure(EntryBarWindowProc);						// Save the default edit-box procedure for future use
+	Resize();																			// Resize command will fill out the space with cell windows
 	
 	// Insert cells upon creation (Optional)
 	if (addExampleCells) {
@@ -66,7 +66,7 @@ void WINDOWS_TABLE::AddRow() noexcept {
 
 	// Create label for row
 	auto label = "R"s + to_string(m_NumRows);
-	auto window = ConstructChildWindow("Static"s, m_Table, cell_ID, g_hInst);
+	auto window = ConstructChildWindow("Static"s, m_Table, cell_ID);
 	auto pos = WINDOW_POSITION{ }.X(m_X0).Y(m_Y0 + (m_NumRows)*m_Height);
 	auto size = WINDOW_DIMENSIONS{ }.Height(m_Height).Width(m_Width);
 	window.Text(label).Move(pos, size);
@@ -74,7 +74,7 @@ void WINDOWS_TABLE::AddRow() noexcept {
 	// Loop through creating cell windows, filling in display value if it exists
 	while (cell_ID.Column() < m_NumColumns) {
 		cell_ID.IncrementColumn();
-		window = ConstructChildWindow("edit"s, m_Table, cell_ID, g_hInst);
+		window = ConstructChildWindow("edit"s, m_Table, cell_ID);
 		pos.X(m_X0 + cell_ID.Column() * m_Width).Y(m_Y0 + (m_NumRows)*m_Height);
 		window.Move(pos, size);
 		window.Procedure(CellWindowProc);
@@ -88,7 +88,7 @@ void WINDOWS_TABLE::AddColumn() noexcept {
 
 	// Create label for column
 	auto label = "C"s + to_string(m_NumColumns);
-	auto window = ConstructChildWindow("Static"s, m_Table, cell_ID, g_hInst);
+	auto window = ConstructChildWindow("Static"s, m_Table, cell_ID);
 	auto pos = WINDOW_POSITION{ }.X(m_X0 + m_NumColumns * m_Width).Y(m_Y0);
 	auto size = WINDOW_DIMENSIONS{ }.Height(m_Height).Width(m_Width);
 	window.Text(label).Move(pos, size);
@@ -96,7 +96,7 @@ void WINDOWS_TABLE::AddColumn() noexcept {
 	// Loop through creating cell windows, filling in display value if it exists
 	while (cell_ID.Row() < m_NumRows) {
 		cell_ID.IncrementRow();
-		window = ConstructChildWindow("edit"s, m_Table, cell_ID, g_hInst);
+		window = ConstructChildWindow("edit"s, m_Table, cell_ID);
 		pos.X(m_X0 + cell_ID.Column() * m_Width).Y(m_Y0 + cell_ID.Row() * m_Height);
 		window.Move(pos, size);
 		window.Procedure(CellWindowProc);
