@@ -76,8 +76,7 @@ void CELL::CELL_DATA::NotifyAll(const CELL_POSITION subject) const noexcept {
 	}
 	for (auto observer: notificationSet) { 
 		auto oCell = GetCell(observer);
-		if (!oCell) { continue; }
-		oCell->UpdateCell();
+		if (oCell) { oCell->UpdateCell(); }
 	}
 }
 
@@ -120,7 +119,7 @@ std::shared_ptr<CELL> CELL::CELL_DATA::GetCell(const CELL::CELL_POSITION pos) co
 CELL::CELL_PROXY CELL::CELL_DATA::GetCellProxy(const CELL::CELL_POSITION pos) noexcept { return CELL_PROXY{ CELL_DATA::GetCell(pos) }; }
 
 void CELL::UpdateCell() noexcept {
-	table->UpdateCell(position); 		// Call update cell on GUI base pointer.
+	table->UpdateCell(position); 			// Call update cell on GUI base pointer.
 	parentContainer->NotifyAll(position);	// Cascade notification
 }
 

@@ -118,7 +118,7 @@ class WINDOWS_TABLE::CELL_ID {
 	void Win_ID_From_Position() noexcept { windowID = (position.column << 16) + position.row; }
 	void Position_From_Win_ID() noexcept {
 		position.column = windowID >> 16;
-		position.row = (windowID - position.column * (UINT16_MAX + 1));
+		position.row = windowID & UINT16_MAX;
 	}
 public:
 	CELL_ID() = default;
