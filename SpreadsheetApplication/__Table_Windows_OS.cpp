@@ -67,17 +67,15 @@ void WINDOWS_TABLE::AddRow() noexcept {
 	// Create label for row
 	auto label = "R"s + to_string(m_NumRows);
 	auto window = ConstructChildWindow("Static"s, m_Table, cell_ID);
-	auto pos = WINDOW_POSITION{ }.X(m_X0).Y(m_Y0 + (m_NumRows)*m_Height);
+	auto pos = WINDOW_POSITION{ }.X( m_X0 ).Y( m_Y0 + m_NumRows * m_Height );
 	auto size = WINDOW_DIMENSIONS{ }.Height(m_Height).Width(m_Width);
 	window.Text(label).Move(pos, size);
 
 	// Loop through creating cell windows, filling in display value if it exists
 	while (cell_ID.Column() < m_NumColumns) {
 		cell_ID.IncrementColumn();
-		window = ConstructChildWindow("edit"s, m_Table, cell_ID);
-		pos.X(m_X0 + cell_ID.Column() * m_Width).Y(m_Y0 + (m_NumRows)*m_Height);
-		window.Move(pos, size);
-		window.Procedure(CellWindowProc);
+		pos.X(m_X0 + cell_ID.Column() * m_Width).Y(m_Y0 + m_NumRows * m_Height);
+		ConstructChildWindow("edit"s, m_Table, cell_ID).Move(pos, size).Procedure(CellWindowProc);
 		table->UpdateCell(cell_ID);
 	}
 }
@@ -89,17 +87,15 @@ void WINDOWS_TABLE::AddColumn() noexcept {
 	// Create label for column
 	auto label = "C"s + to_string(m_NumColumns);
 	auto window = ConstructChildWindow("Static"s, m_Table, cell_ID);
-	auto pos = WINDOW_POSITION{ }.X(m_X0 + m_NumColumns * m_Width).Y(m_Y0);
+	auto pos = WINDOW_POSITION{ }.X( m_X0 + m_NumColumns * m_Width ).Y( m_Y0 );
 	auto size = WINDOW_DIMENSIONS{ }.Height(m_Height).Width(m_Width);
 	window.Text(label).Move(pos, size);
 
 	// Loop through creating cell windows, filling in display value if it exists
 	while (cell_ID.Row() < m_NumRows) {
 		cell_ID.IncrementRow();
-		window = ConstructChildWindow("edit"s, m_Table, cell_ID);
-		pos.X(m_X0 + cell_ID.Column() * m_Width).Y(m_Y0 + cell_ID.Row() * m_Height);
-		window.Move(pos, size);
-		window.Procedure(CellWindowProc);
+		pos.X( m_X0 + cell_ID.Column() * m_Width ).Y( m_Y0 + cell_ID.Row() * m_Height );
+		ConstructChildWindow("edit"s, m_Table, cell_ID).Move(pos, size).Procedure(CellWindowProc);
 		table->UpdateCell(cell_ID);
 	}
 }
@@ -165,8 +161,7 @@ void WINDOWS_TABLE::FocusCell(const CELL::CELL_POSITION pos) const noexcept {
 	}
 	else if (cell) {									// If cell exists
 		text = cell->GetRawContent();					// Grab display text of cell
-		window.Text(text);								// Show raw content rather than display value when cell is selected for editing
-		window.Message(EM_SETSEL, 0, -1);				// Select all within cell
+		window.Text(text).Message(EM_SETSEL, 0, -1);	// Show raw content when editing and start by selecting the whole content
 		m_TextEditBar.Text(text);						// Display raw content in entry bar
 	}
 	else { m_TextEditBar.Text(""s); }					// Otherwise, clear entry bar.
@@ -192,8 +187,7 @@ void WINDOWS_TABLE::UnfocusEntryBox(const CELL::CELL_POSITION pos) const noexcep
 		auto out = wstring{ L"&" };
 		out += L"R" + to_wstring(id.Row());
 		out += L"C" + to_wstring(id.Column());
-		m_TextEditBar.Focus();
-		m_TextEditBar.Message(EM_REPLACESEL, 0, reinterpret_cast<LPARAM>(out.c_str()));
+		m_TextEditBar.Focus().Message(EM_REPLACESEL, 0, reinterpret_cast<LPARAM>(out.c_str()));
 	}
 }
 
