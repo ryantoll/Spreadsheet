@@ -49,7 +49,7 @@ public:
 // Windows-specific code is segmented with a preprocessor command
 // Code for the appropriate system can be selected by this means
 #ifdef _WINDOWS
-inline WINDOWS_GUI::WINDOW m_Table, m_TextEditBar;
+inline RYANS_UTILITIES::WINDOWS_GUI::WINDOW m_Table, m_TextEditBar;
 inline WNDPROC m_EditHandler;
 LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK EntryBarWindowProc(HWND, UINT, WPARAM, LPARAM);

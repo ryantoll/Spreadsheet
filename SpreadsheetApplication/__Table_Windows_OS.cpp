@@ -6,8 +6,8 @@
 #include "__WINDOW.h"
 
 using namespace std;
-using namespace WINDOWS_GUI;
 using namespace RYANS_UTILITIES;
+using namespace RYANS_UTILITIES::WINDOWS_GUI;
 
 constexpr auto addExampleCells{ true };		// Add initial batch of example cells
 const unsigned long id_Table_Background{ 1001 }, id_Text_Edit_Bar{ 1002 };
