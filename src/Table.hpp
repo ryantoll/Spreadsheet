@@ -1,8 +1,8 @@
-#ifndef TABLE_CLASS_H
-#define TABLE_CLASS_H
-#include "stdafx.h"
-#include "__Cell.h"
-#include "__WINDOW.h"
+#ifndef TABLE_CLASS_HPP
+#define TABLE_CLASS_HPP
+#include "framework.hpp"
+#include "Cell.hpp"
+#include "WINDOW.hpp"
 
 class TABLE_BASE;
 inline auto table = std::unique_ptr<TABLE_BASE>{ };
@@ -190,4 +190,4 @@ protected:
 #endif // _CONSOLE
 
 
-#endif //!TABLE_CLASS_H
+#endif //!TABLE_CLASS_HPP

@@ -1,10 +1,10 @@
 #ifndef WINDOWS_GUI_FOUNDATION_LIBRARY
 #define WINDOWS_GUI_FOUNDATION_LIBRARY
 
-#include "stdafx.h"
+#include "framework.hpp"
 //#include <Windows.h>
 //#include <string>
-#include "Utilities.h"
+#include "Utilities.hpp"
 
 namespace RYANS_UTILITIES {
 	namespace WINDOWS_GUI {

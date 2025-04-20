@@ -1,4 +1,4 @@
-#include "stdafx.h"
+#include "framework.hpp"
 
 #ifdef _WINDOWS
 

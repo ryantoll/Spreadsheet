@@ -5,13 +5,13 @@
 // Far fewer table features are needed for this and a few are added to help the console specifically.
 *///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "stdafx.h"
+#include "framework.hpp"
 
 //#define _CONSOLE
 
 #ifdef _CONSOLE
 #include "Utilities.h"
-#include "__Table.h"
+#include "Table.h"
 
 using namespace std;
 

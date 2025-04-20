@@ -1,7 +1,7 @@
-#include "stdafx.h"
-#include "Utilities.h"
-#include "__Cell.h"
-#include "__Table.h"
+#include "framework.hpp"
+#include "Utilities.hpp"
+#include "Cell.hpp"
+#include "Table.hpp"
 
 using namespace std;
 using namespace RYANS_UTILITIES;

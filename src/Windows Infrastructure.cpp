@@ -6,9 +6,9 @@
 // These operations are separated out into their own file to prevent distraction from the more relevant program logic.
 *//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "stdafx.h"
-#include "SpreadsheetApplication.h"
-#include "__Table.h"
+#include "framework.hpp"
+#include "SpreadsheetApplication.hpp"
+#include "Table.hpp"
 
 #ifdef _WINDOWS
 

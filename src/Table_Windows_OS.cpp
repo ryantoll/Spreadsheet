@@ -1,9 +1,9 @@
-#include "stdafx.h"
+#include "framework.hpp"
 
 #ifdef _WINDOWS
-#include "Utilities.h"
-#include "__Table.h"
-#include "__WINDOW.h"
+#include "Utilities.hpp"
+#include "Table.hpp"
+#include "WINDOW.hpp"
 
 using namespace std;
 using namespace RYANS_UTILITIES;

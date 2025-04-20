@@ -3,9 +3,9 @@
 // 
 *///////////
 
-#include "stdafx.h"
-#include "__Cell.h"
-#include "Utilities.h"
+#include "framework.hpp"
+#include "Cell.hpp"
+#include "Utilities.hpp"
 
 using namespace std;
 using namespace RYANS_UTILITIES;

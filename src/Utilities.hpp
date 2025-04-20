@@ -1,7 +1,7 @@
-#ifndef __RYANS_UTILITIES
-#define __RYANS_UTILITIES
+#ifndef RYANS_UTILITIES_HPP
+#define RYANS_UTILITIES_HPP
 
-#include "stdafx.h"
+#include "framework.hpp"
 
 namespace RYANS_UTILITIES {
 
@@ -67,4 +67,4 @@ namespace RYANS_UTILITIES {
 	}
 }
 
-#endif // !__RYANS_UTILITIES
+#endif // !__RYANS_UTILITIES_HPP

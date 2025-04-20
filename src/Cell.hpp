@@ -16,10 +16,10 @@
 // The choice of column sorting preempting row sorting is arbitrary. Either way is fine so long as it is consistent.
 *////////////////////////////////////////////////////////////////////////////////////////////////
 
-#ifndef CELL_CLASS_H
-#define CELL_CLASS_H
+#ifndef CELL_CLASS_HPP
+#define CELL_CLASS_HPP
 
-#include "stdafx.h"
+#include "framework.hpp"
 constexpr auto MaxRow_{ UINT16_MAX };
 constexpr auto MaxColumn_{ UINT16_MAX };
 
@@ -249,4 +249,4 @@ struct PI : public FUNCTION { PI(); bool UpdateArgument() noexcept final; };
 // Part of an alternative function mapping scheme
 // std::unordered_map<wstring, shared_ptr<FUNCTION_CELL::FUNCTION>> functionNameMap{ {wstring(L"SUM"), shared_ptr<FUNCTION_CELL::SUM>()}, {wstring(L"AVERAGE"), shared_ptr<FUNCTION_CELL::AVERAGE>()} };
 
-#endif // !CELL_CLASS_H
+#endif // !CELL_CLASS_HPP
