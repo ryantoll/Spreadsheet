@@ -7,11 +7,9 @@
 
 #include "framework.hpp"
 
-//#define _CONSOLE
-
 #ifdef _CONSOLE
-#include "Utilities.h"
-#include "Table.h"
+#include "Utilities.hpp"
+#include "Table.hpp"
 
 using namespace std;
 
