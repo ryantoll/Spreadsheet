@@ -61,7 +61,7 @@ If you are looking for the Windows GUI version, see the instructions for switchi
 	table->InitializeTable();
 }
 
-void CONSOLE_TABLE::InitializeTable() noexcept {
+void CONSOLE_TABLE::InitializeTable() {
 	auto input = string{ };
 	auto selection = int{ };
 
@@ -111,7 +111,7 @@ void CONSOLE_TABLE::InitializeTable() noexcept {
 	}
 }
 
-void CONSOLE_TABLE::Redraw() const noexcept {
+void CONSOLE_TABLE::Redraw() const {
 	auto pos = CELL::CELL_POSITION{ };
 	auto output = string{ };
 	for (auto r = 1; r <= numRows; r++) {
@@ -126,7 +126,7 @@ void CONSOLE_TABLE::Redraw() const noexcept {
 	}
 }
 
-void CONSOLE_TABLE::PrintCellList() const noexcept{
+void CONSOLE_TABLE::PrintCellList() const {
 	auto pos = CELL::CELL_POSITION{ };
 	auto output = string{ };
 	for (auto r = 1; r <= numRows; r++) {
@@ -144,7 +144,7 @@ void CONSOLE_TABLE::PrintCellList() const noexcept{
 	}
 }
 
-void CONSOLE_TABLE::UpdateCell(const CELL::CELL_POSITION pos) const noexcept {
+void CONSOLE_TABLE::UpdateCell(const CELL::CELL_POSITION pos) const {
 	if (!cellDiagnostics) { return; }
 	auto cell = cellData.GetCellProxy(pos);
 	if (!cell) { return; }
@@ -152,7 +152,7 @@ void CONSOLE_TABLE::UpdateCell(const CELL::CELL_POSITION pos) const noexcept {
 		<< '\t' << cell->GetRawContent() << endl;
 }
 
-CELL::CELL_PROXY CONSOLE_TABLE::CreateNewCell() const noexcept {
+CELL::CELL_PROXY CONSOLE_TABLE::CreateNewCell() const {
 	auto input = string{ };
 	auto pos = RequestCellPos();
 	auto current = cellData.GetCellProxy(pos);
@@ -171,7 +171,7 @@ CELL::CELL_PROXY CONSOLE_TABLE::CreateNewCell() const noexcept {
 	return cell;
 }
 
-CELL::CELL_PROXY CONSOLE_TABLE::CreateNewCell(const CELL::CELL_POSITION pos, const string& rawInput) const noexcept {
+CELL::CELL_PROXY CONSOLE_TABLE::CreateNewCell(const CELL::CELL_POSITION pos, const string& rawInput) const {
 	auto oldCell = cellData.GetCellProxy(pos);
 	auto nCell = CELL::NewCell(&cellData, pos, rawInput);
 	auto oldText = string{ };
@@ -180,9 +180,9 @@ CELL::CELL_PROXY CONSOLE_TABLE::CreateNewCell(const CELL::CELL_POSITION pos, con
 	return nCell;
 }
 
-void CONSOLE_TABLE::ClearCell(const CELL::CELL_POSITION pos) const noexcept { CreateNewCell(pos, ""s); }
+void CONSOLE_TABLE::ClearCell(const CELL::CELL_POSITION pos) const { CreateNewCell(pos, ""s); }
 
-CELL::CELL_POSITION CONSOLE_TABLE::RequestCellPos() const noexcept {
+CELL::CELL_POSITION CONSOLE_TABLE::RequestCellPos() const {
 	auto input = string{ };
 	auto pos = CELL::CELL_POSITION{ };
 	cout << "Select Cell\nR: ";
@@ -199,7 +199,7 @@ CELL::CELL_POSITION CONSOLE_TABLE::RequestCellPos() const noexcept {
 	return pos;
 }
 
-void CONSOLE_TABLE::Undo() const noexcept {
+void CONSOLE_TABLE::Undo() const {
 	if (undoStack.empty()) { return; }
 	auto cell = undoStack.back().first;
 	auto otherCell = undoStack.back().second;
@@ -211,7 +211,7 @@ void CONSOLE_TABLE::Undo() const noexcept {
 	undoStack.pop_back();
 }
 
-void CONSOLE_TABLE::Redo() const noexcept {
+void CONSOLE_TABLE::Redo() const {
 	if (redoStack.empty()) { return; }
 	auto cell = redoStack.back().second;
 	auto otherCell = redoStack.back().first;
