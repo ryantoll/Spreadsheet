@@ -1,3 +1,7 @@
+#ifdef _CONSOLE
+#undef _WINDOWS
+#endif
+
 #include "Cell.hpp"
 #include "Table.hpp"
 #include <memory>
@@ -6,7 +10,6 @@
 #include <string>
 
 using namespace std;
-using namespace RYANS_UTILITIES;
 
 CELL::CELL_PROXY CELL::NewCell(CELL_DATA* parentContainer, const CELL_POSITION position, const string& contents) noexcept {
 	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,

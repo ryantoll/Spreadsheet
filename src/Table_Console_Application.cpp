@@ -5,6 +5,10 @@
 // Far fewer table features are needed for this and a few are added to help the console specifically.
 *///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+#ifdef _CONSOLE
+#undef _WINDOWS
+#endif
+
 #include <iostream>
 
 #include <memory>
