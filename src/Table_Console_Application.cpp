@@ -5,10 +5,12 @@
 // Far fewer table features are needed for this and a few are added to help the console specifically.
 *///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "framework.hpp"
+#include <iostream>
 
-#ifdef _CONSOLE
-#include "Utilities.hpp"
+#include <memory>
+
+#include <string>
+
 #include "Table.hpp"
 
 using namespace std;
@@ -217,5 +219,3 @@ void CONSOLE_TABLE::Redo() const noexcept {
 	undoStack.push_back(redoStack.back());
 	redoStack.pop_back();
 }
-
-#endif // _CONSOLE

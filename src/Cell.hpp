@@ -19,7 +19,12 @@
 #ifndef CELL_CLASS_HPP
 #define CELL_CLASS_HPP
 
-#include "framework.hpp"
+#include <memory>
+
+#include <future>
+#include <set>
+#include <string>
+
 constexpr auto MaxRow_{ UINT16_MAX };
 constexpr auto MaxColumn_{ UINT16_MAX };
 

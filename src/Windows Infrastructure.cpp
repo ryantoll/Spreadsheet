@@ -10,8 +10,6 @@
 #include "SpreadsheetApplication.hpp"
 #include "Table.hpp"
 
-#ifdef _WINDOWS
-
 // SpreadsheetApplication.cpp : Defines the entry point for the application.
 
 #define MAX_LOADSTRING 100
@@ -128,5 +126,3 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 	return TRUE;
 }
-
-#endif // _WINDOWS

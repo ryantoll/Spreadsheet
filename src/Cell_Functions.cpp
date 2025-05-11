@@ -3,7 +3,6 @@
 // 
 *///////////
 
-#include "framework.hpp"
 #include "Cell.hpp"
 #include "Utilities.hpp"
 

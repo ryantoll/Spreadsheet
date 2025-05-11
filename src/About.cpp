@@ -1,7 +1,5 @@
 #include "framework.hpp"
 
-#ifdef _WINDOWS
-
 // Message handler for about box.
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -21,5 +19,3 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	return (INT_PTR)FALSE;
 }
-
-#endif // _WINDOWS

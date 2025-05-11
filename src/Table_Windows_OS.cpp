@@ -1,9 +1,7 @@
 #include "framework.hpp"
 
-#ifdef _WINDOWS
 #include "Utilities.hpp"
 #include "Table.hpp"
-#include "WINDOW.hpp"
 
 using namespace std;
 using namespace RYANS_UTILITIES;
@@ -251,5 +249,3 @@ void WINDOWS_TABLE::Redo() const noexcept {
 	m_UndoStack.push_back(m_RedoStack.back());
 	m_RedoStack.pop_back();
 }
-
-#endif // WIN32

@@ -1,8 +1,10 @@
 #ifndef TABLE_CLASS_HPP
 #define TABLE_CLASS_HPP
-#include "framework.hpp"
+
 #include "Cell.hpp"
-#include "WINDOW.hpp"
+#include <memory>
+
+#include <string>
 
 class TABLE_BASE;
 inline auto table = std::unique_ptr<TABLE_BASE>{ };
@@ -49,6 +51,7 @@ public:
 // Windows-specific code is segmented with a preprocessor command
 // Code for the appropriate system can be selected by this means
 #ifdef _WINDOWS
+#include "WINDOW.hpp"
 inline RYANS_UTILITIES::WINDOWS_GUI::WINDOW m_Table, m_TextEditBar;
 inline WNDPROC m_EditHandler;
 LRESULT CALLBACK CellWindowProc(HWND, UINT, WPARAM, LPARAM);
