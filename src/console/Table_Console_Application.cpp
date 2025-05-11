@@ -2,6 +2,7 @@
 // This is an experimental console interface to the spreadsheet application.
 // The point here is to show the UI encapsulation & portability of the program.
 // To switch over to Windows, change the compiler flag _CONSOLE -> _WINDOWS and change the linker subsystem CONSOLE -> WINDOWS.
+// CMake configurations are set up to facilitate easy switching.
 // Far fewer table features are needed for this and a few are added to help the console specifically.
 *///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
