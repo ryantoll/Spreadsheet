@@ -45,7 +45,7 @@ CELL::CELL_PROXY CELL::NewCell(CELL_DATA* parentContainer, const CELL_POSITION p
 	case L'7': [[fallthrough]];
 	case L'8': [[fallthrough]];
 	case L'9': [[fallthrough]];
-	case L'0': { cell = make_shared< NUMERICAL_CELL>(); } break;	// Any cell beginning with a number or decimal is a number.
+	case L'0': { cell = make_shared<NUMERICAL_CELL>(); } break;	// Any cell beginning with a number or decimal is a number.
 	default: { cell = make_shared<TEXT_CELL>(); } break;			// By default, all cells are text cells unless otherwise determined.
 	}
 

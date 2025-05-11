@@ -70,6 +70,10 @@ public:
 
 		auto operator->() const { return cell; }
 		explicit operator bool() const { return bool{ cell }; }
+
+		friend bool operator== (const CELL::CELL_PROXY& lhs, const CELL::CELL_PROXY& rhs) { return lhs.cell.get() == rhs.cell.get(); }
+
+		friend bool operator!= (const CELL::CELL_PROXY& lhs, const CELL::CELL_PROXY& rhs) { return !(lhs == rhs); }
 	};
 
 	// Allows client to store all CELL data and subscriptions, allowing any number of sets as needed.
