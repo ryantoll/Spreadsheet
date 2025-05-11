@@ -11,7 +11,7 @@
 
 using namespace std;
 
-CELL::CELL_PROXY CELL::NewCell(CELL_DATA* parentContainer, const CELL_POSITION position, const string& contents) noexcept {
+CELL::CELL_PROXY CELL::NewCell(CELL_DATA* parentContainer, const CELL_POSITION position, const string& contents) {
 	// Check for valid cell position. Disallowing R == 0 && C == 0 not only fits (non-programmer) human intuition,
 	// but also prevents accidental errors in failing to specify a location.
 	// R == 0 || C == 0 almost certainly indicates a failure to specify one or both arguments.
@@ -62,7 +62,7 @@ CELL::CELL_PROXY CELL::NewCell(CELL_DATA* parentContainer, const CELL_POSITION p
 	return parentContainer->GetCellProxy(position);		// Return stored cell so that failed numerical cells return the stored fallback text cell rather than the original failed numerical cell.
 }
 
-void CELL::RecreateCell(CELL_DATA* parentContainer, const CELL_PROXY& cell, const CELL_POSITION pos) noexcept {
+void CELL::RecreateCell(CELL_DATA* parentContainer, const CELL_PROXY& cell, const CELL_POSITION pos) {
 	if (!cell) { parentContainer->EraseCell(pos); }			// Cell stays subscribed.
 	else { parentContainer->AssignCell(cell.cell); }
 	parentContainer->NotifyAll(pos);
@@ -71,7 +71,7 @@ void CELL::RecreateCell(CELL_DATA* parentContainer, const CELL_PROXY& cell, cons
 
 // Notifies observing CELLs of change in underlying data.
 // Each CELL is responsible for checking the new data.
-void CELL::CELL_DATA::NotifyAll(const CELL_POSITION subject) const noexcept {
+void CELL::CELL_DATA::NotifyAll(const CELL_POSITION subject) const {
 	auto notificationSet = std::set<CELL_POSITION>{ };
 	{
 		auto lk = lock_guard<mutex>{ data.lkSubMap };		// Lock only to get local copy of notification set
@@ -85,50 +85,50 @@ void CELL::CELL_DATA::NotifyAll(const CELL_POSITION subject) const noexcept {
 	}
 }
 
-void CELL::CELL_DATA::AssignCell(const shared_ptr<CELL> cell) noexcept {
+void CELL::CELL_DATA::AssignCell(const shared_ptr<CELL> cell) {
 	auto lk = lock_guard<mutex>{ data.lkCellMap };
 	data.cellMap[cell->position] = cell;
 }
 
-void CELL::CELL_DATA::EraseCell(const CELL_POSITION pos) noexcept {
+void CELL::CELL_DATA::EraseCell(const CELL_POSITION pos) {
 	auto lk = lock_guard<mutex>{ data.lkCellMap };
 	data.cellMap.erase(pos);
 }
 
 // Subscribe to notification of changes in target CELL.
-void CELL::SubscribeToCell(const CELL_POSITION subject) const noexcept { parentContainer->SubscribeToCell(subject, position); }
+void CELL::SubscribeToCell(const CELL_POSITION subject) const { parentContainer->SubscribeToCell(subject, position); }
 
 // Use static overload below
-void CELL::UnsubscribeFromCell(const CELL_POSITION subject) const noexcept { parentContainer->UnsubscribeFromCell(subject, position); }
+void CELL::UnsubscribeFromCell(const CELL_POSITION subject) const { parentContainer->UnsubscribeFromCell(subject, position); }
 
-void CELL::CELL_DATA::SubscribeToCell(const CELL_POSITION subject, const CELL_POSITION observer) noexcept {
+void CELL::CELL_DATA::SubscribeToCell(const CELL_POSITION subject, const CELL_POSITION observer) {
 	auto lk = lock_guard<mutex>{ data.lkSubMap };
 	auto& observerSet = data.subscriptionMap[subject];
 	observerSet.insert(observer);
 }
 
 // Remove observer link (Subject, Observer)
-void CELL::CELL_DATA::UnsubscribeFromCell(const CELL_POSITION subject, const CELL_POSITION observer) noexcept {
+void CELL::CELL_DATA::UnsubscribeFromCell(const CELL_POSITION subject, const CELL_POSITION observer) {
 	auto lk = lock_guard<mutex>{ data.lkSubMap };
 	auto itSubject = data.subscriptionMap.find(subject);
 	if (itSubject == data.subscriptionMap.end()) { return; }
 	(*itSubject).second.erase(observer);
 }
 
-std::shared_ptr<CELL> CELL::CELL_DATA::GetCell(const CELL::CELL_POSITION pos) const noexcept {
+std::shared_ptr<CELL> CELL::CELL_DATA::GetCell(const CELL::CELL_POSITION pos) const {
 	auto lk = lock_guard<mutex>{ data.lkCellMap };
 	auto it = data.cellMap.find(pos);
 	return it != data.cellMap.end() ? it->second : nullptr;
 }
 
-CELL::CELL_PROXY CELL::CELL_DATA::GetCellProxy(const CELL::CELL_POSITION pos) noexcept { return CELL_PROXY{ CELL_DATA::GetCell(pos) }; }
+CELL::CELL_PROXY CELL::CELL_DATA::GetCellProxy(const CELL::CELL_POSITION pos) { return CELL_PROXY{ CELL_DATA::GetCell(pos) }; }
 
-void CELL::UpdateCell() noexcept {
+void CELL::UpdateCell() {
 	table->UpdateCell(position); 			// Call update cell on GUI base pointer.
 	parentContainer->NotifyAll(position);	// Cascade notification
 }
 
-void TEXT_CELL::InitializeCell() noexcept {
+void TEXT_CELL::InitializeCell() {
 	CELL::InitializeCell();
 	if (displayValue[0] == L'\'') { displayValue.erase(0, 1); }		// Omit preceeding ' if it was added to enforce a text cell
 }
@@ -155,7 +155,7 @@ CELL::CELL_POSITION ReferenceStringToCellPosition(const string& refString) {
 }
 
 // Subscribe to updates on referenced cell once it's position is determined
-void REFERENCE_CELL::InitializeCell() noexcept {
+void REFERENCE_CELL::InitializeCell() {
 	try {
 		referencePosition = ReferenceStringToCellPosition(GetRawContent());
 		SubscribeToCell(referencePosition);
@@ -167,7 +167,7 @@ void REFERENCE_CELL::InitializeCell() noexcept {
 // Any cell that seems like a number, but cannot be converted to such defaults to text.
 // Create a new cell at the same position with a prepended text-enforcement character.
 // Manually check for alpha characters since std::stod() is more forgiving than is appropriate for this situation.
-void NUMERICAL_CELL::InitializeCell() noexcept {
+void NUMERICAL_CELL::InitializeCell() {
 	try { 
 		for (auto c : GetRawContent()) { if (!isdigit(c) && c != '.' && c != '-') { throw invalid_argument("Error parsing input text. \nText could not be interpreted as a number"); } }
 		storedValue = stod(GetRawContent());
@@ -176,7 +176,7 @@ void NUMERICAL_CELL::InitializeCell() noexcept {
 }
 
 // Parse function text into actual functions.
-void FUNCTION_CELL::InitializeCell() noexcept {
+void FUNCTION_CELL::InitializeCell() {
 	auto inputText = GetRawContent().substr(1);
 	auto vArgs = vector<shared_ptr<ARGUMENT>>{ };
 	try { 
@@ -188,7 +188,7 @@ void FUNCTION_CELL::InitializeCell() noexcept {
 }
 
 // Recalculate function when an underlying reference argument is changed.
-void FUNCTION_CELL::UpdateCell() noexcept {
+void FUNCTION_CELL::UpdateCell() {
 	displayValue = "";
 	error = false;		// Reset error flag in case there was a prior error
 	try { 

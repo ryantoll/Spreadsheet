@@ -41,7 +41,7 @@ public:
 	// Hash function of CELL_POSITION
 	// It is simply a bitwise concatination of the column and row bits.
 	struct CELL_HASH {
-		std::size_t operator() (CELL::CELL_POSITION const& pos) const noexcept {
+		std::size_t operator() (CELL::CELL_POSITION const& pos) const {
 			auto x = unsigned long{ 0 };
 			x = x | pos.column;
 			x = x << 16;
@@ -56,20 +56,20 @@ public:
 	class CELL_PROXY {
 		friend class CELL;
 		std::shared_ptr<CELL> cell;
-		auto operator*() const noexcept { return *cell; }
+		auto operator*() const { return *cell; }
 	public:
 		CELL_PROXY() = default;
 		explicit CELL_PROXY(const std::shared_ptr<CELL> target) : cell(target) { }
 		~CELL_PROXY() = default;
 
 		// Copy & move
-		CELL_PROXY& operator=(const std::shared_ptr<CELL> target) noexcept { cell = target; if (cell) { cell->UpdateCell(); } return *this; }
-		CELL_PROXY(const CELL_PROXY& target) noexcept : cell(target.cell) { cell = target.cell; if (cell) { cell->UpdateCell(); } }
-		CELL_PROXY& operator=(const std::shared_ptr<CELL>&& target) noexcept { cell = target; if (cell) { cell->UpdateCell(); } return *this; }
-		CELL_PROXY(const CELL_PROXY&& target) noexcept : cell(target.cell) { cell = target.cell; if (cell) { cell->UpdateCell(); } }
+		CELL_PROXY& operator=(const std::shared_ptr<CELL> target) { cell = target; if (cell) { cell->UpdateCell(); } return *this; }
+		CELL_PROXY(const CELL_PROXY& target) : cell(target.cell) { cell = target.cell; if (cell) { cell->UpdateCell(); } }
+		CELL_PROXY& operator=(const std::shared_ptr<CELL>&& target) { cell = target; if (cell) { cell->UpdateCell(); } return *this; }
+		CELL_PROXY(const CELL_PROXY&& target) : cell(target.cell) { cell = target.cell; if (cell) { cell->UpdateCell(); } }
 
-		auto operator->() const noexcept { return cell; }
-		explicit operator bool() const noexcept { return bool{ cell }; }
+		auto operator->() const { return cell; }
+		explicit operator bool() const { return bool{ cell }; }
 	};
 
 	// Allows client to store all CELL data and subscriptions, allowing any number of sets as needed.
@@ -90,14 +90,14 @@ public:
 		};
 
 		INNER_CELL_DATA data;
-		std::shared_ptr<CELL> GetCell(const CELL::CELL_POSITION) const noexcept;
-		void NotifyAll(const CELL_POSITION) const noexcept;
-		void AssignCell(const std::shared_ptr<CELL>) noexcept;
-		void EraseCell(const CELL_POSITION) noexcept;
-		void SubscribeToCell(const CELL_POSITION, const CELL_POSITION) noexcept;
-		void UnsubscribeFromCell(const CELL_POSITION, const CELL_POSITION) noexcept;
+		std::shared_ptr<CELL> GetCell(const CELL::CELL_POSITION) const;
+		void NotifyAll(const CELL_POSITION) const;
+		void AssignCell(const std::shared_ptr<CELL>);
+		void EraseCell(const CELL_POSITION);
+		void SubscribeToCell(const CELL_POSITION, const CELL_POSITION);
+		void UnsubscribeFromCell(const CELL_POSITION, const CELL_POSITION);
 	public:
-		CELL_PROXY GetCellProxy(const CELL::CELL_POSITION) noexcept;
+		CELL_PROXY GetCellProxy(const CELL::CELL_POSITION);
 		friend class CELL;
 		friend struct REFERENCE_ARGUMENT;
 	};
@@ -105,8 +105,8 @@ public:
 	// "Factory" function to create new cells
 	// This was previously written as a class, but has devolved over time as it is only a single function in practice
 	// A function parallels the "Singleton" pattern, but implies that users cannot extend it through inheritance
-	static CELL_PROXY NewCell(CELL_DATA*, const CELL_POSITION, const std::string&) noexcept;
-	static void RecreateCell(CELL_DATA*, const CELL_PROXY&, const CELL_POSITION) noexcept;
+	static CELL_PROXY NewCell(CELL_DATA*, const CELL_POSITION, const std::string&);
+	static void RecreateCell(CELL_DATA*, const CELL_PROXY&, const CELL_POSITION);
 
 protected:
 	CELL() { }		// Hide constructor to force usage of factory function
@@ -123,14 +123,14 @@ protected:
 	CELL_POSITION position;
 	CELL_DATA* parentContainer{ nullptr };
 
-	void SubscribeToCell(const CELL_POSITION) const noexcept;
-	void UnsubscribeFromCell(const CELL_POSITION) const noexcept;
+	void SubscribeToCell(const CELL_POSITION) const;
+	void UnsubscribeFromCell(const CELL_POSITION) const;
 public:
-	virtual std::string GetOutput() const noexcept { return error ? "!ERROR!" : displayValue; }
-	virtual std::string GetRawContent() const noexcept { return rawContent; }
-	virtual void InitializeCell() noexcept { displayValue = rawContent; }
-	virtual void UpdateCell() noexcept;						// Tell a CELL to update its state.
-	CELL_POSITION GetPosition() const noexcept { return position; }
+	virtual std::string GetOutput() const { return error ? "!ERROR!" : displayValue; }
+	virtual std::string GetRawContent() const { return rawContent; }
+	virtual void InitializeCell() { displayValue = rawContent; }
+	virtual void UpdateCell();						// Tell a CELL to update its state.
+	CELL_POSITION GetPosition() const { return position; }
 };
 
 inline bool operator< (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITION& rhs) {
@@ -147,22 +147,22 @@ inline bool operator!= (const CELL::CELL_POSITION& lhs, const CELL::CELL_POSITIO
 class TEXT_CELL : public CELL {
 public:
 	virtual ~TEXT_CELL() {}
-	std::string GetOutput() const noexcept override { return displayValue; }		// Presumably this will never be in an error state.
-	void InitializeCell() noexcept override;
+	std::string GetOutput() const override { return displayValue; }		// Presumably this will never be in an error state.
+	void InitializeCell() override;
 };
 
 // A cell that refers to another cell by referring to it's position.
 class REFERENCE_CELL : public CELL {
 public:
 	virtual ~REFERENCE_CELL() { UnsubscribeFromCell(referencePosition); }
-	std::string GetOutput() const noexcept override {
+	std::string GetOutput() const override {
 		auto out = std::string{ };
 		auto cell = parentContainer->GetCellProxy(referencePosition);
 		if (!cell || cell->GetPosition() == position) { out = "!REF!"; }	// Dangling reference & reference to self both cause a reference error.
 		else { out = cell->GetOutput(); }
 		return error ? "!ERROR!" : out;
 	}
-	void InitializeCell() noexcept override;
+	void InitializeCell() override;
 protected:
 	CELL_POSITION referencePosition;
 };
@@ -178,16 +178,16 @@ protected:
 	//DISPLAY_PARAMETERS parameters;		// Add criteria for textual representation of value. (Ex. 1 vs. 1.0000 vs. $1.00, etc.)
 public:
 	virtual ~NUMERICAL_CELL() {}
-	std::string GetOutput() const noexcept override { return error ? "!ERROR!" : std::to_string(storedValue); }
-	void InitializeCell() noexcept override;
+	std::string GetOutput() const override { return error ? "!ERROR!" : std::to_string(storedValue); }
+	void InitializeCell() override;
 };
 
 struct ARGUMENT;
 // A cell that contains one or more FUNCTION(s).
 class FUNCTION_CELL : public NUMERICAL_CELL {
 public:
-	void InitializeCell() noexcept override;
-	void UpdateCell() noexcept override;		// Need to add recalculate logic here for when reference cells update
+	void InitializeCell() override;
+	void UpdateCell() override;		// Need to add recalculate logic here for when reference cells update
 protected:
 	std::shared_ptr<ARGUMENT> m_Func;
 	std::shared_ptr<ARGUMENT> ParseFunctionString(std::string&);
@@ -196,14 +196,14 @@ protected:
 // ARGUMENT serves as the argument for FUNCTIONs, which are in turn ARGUMENTs themselves.
 // It contains a future to get its value from an async call, stores the value, and tracks changes in underlying arguments.
 struct ARGUMENT {
-	virtual bool UpdateArgument() noexcept { return true; }				// Logic to update argument when dependent cells update. May be trivial.
+	virtual bool UpdateArgument() { return true; }				// Logic to update argument when dependent cells update. May be trivial.
 	double Get() { return stillValid ? storedArgument : val.get(); }	// Lazy evaluation
 protected:
 	std::future<double> val;
 	double storedArgument{ };
 	bool stillValid{ false };
-	void SetValue(double) noexcept;
-	void SetValue(std::exception) noexcept;
+	void SetValue(double);
+	void SetValue(std::exception);
 };
 
 // FUNCTION will utilize the "Strategy" pattern to support numerous function types by specializing the base FUNCTION type for each function used.
@@ -220,12 +220,12 @@ struct FUNCTION : public ARGUMENT {
 	std::vector<std::shared_ptr<ARGUMENT>> Arguments;
 	bool error{ false };
 	//double (*funPTR) (vector<ARGUMENT>);			// Alternate to subclassing, just assign a function to this pointer at runtime.
-	bool UpdateArgument() noexcept override;
+	bool UpdateArgument() override;
 };
 
 struct VALUE_ARGUMENT : public ARGUMENT {
 	explicit VALUE_ARGUMENT(double);
-	bool UpdateArgument() noexcept override;
+	bool UpdateArgument() override;
 };
 
 struct REFERENCE_ARGUMENT : public ARGUMENT {
@@ -233,7 +233,7 @@ struct REFERENCE_ARGUMENT : public ARGUMENT {
 	~REFERENCE_ARGUMENT();
 	CELL::CELL_DATA* parentContainer;
 	CELL::CELL_POSITION referencePosition, parentPosition;
-	bool UpdateArgument() noexcept override;
+	bool UpdateArgument() override;
 };
 
 /*////////////////////////////////////////////////////////////
@@ -244,12 +244,12 @@ struct REFERENCE_ARGUMENT : public ARGUMENT {
 // Each one must get a newly created object, lest they share the same arguments.
 std::shared_ptr<FUNCTION> MatchNameToFunction(const std::string& inputText, std::vector<std::shared_ptr<ARGUMENT>>&& args);
 
-struct SUM : public FUNCTION { SUM(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
-struct AVERAGE : public FUNCTION { AVERAGE(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
-struct PRODUCT : public FUNCTION { PRODUCT(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
-struct INVERSE : public FUNCTION { INVERSE(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
-struct RECIPROCAL : public FUNCTION { RECIPROCAL(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() noexcept final; };
-struct PI : public FUNCTION { PI(); bool UpdateArgument() noexcept final; };
+struct SUM : public FUNCTION { SUM(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() final; };
+struct AVERAGE : public FUNCTION { AVERAGE(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() final; };
+struct PRODUCT : public FUNCTION { PRODUCT(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() final; };
+struct INVERSE : public FUNCTION { INVERSE(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() final; };
+struct RECIPROCAL : public FUNCTION { RECIPROCAL(std::vector<std::shared_ptr<ARGUMENT>>&& args); bool UpdateArgument() final; };
+struct PI : public FUNCTION { PI(); bool UpdateArgument() final; };
 
 // Part of an alternative function mapping scheme
 // std::unordered_map<wstring, shared_ptr<FUNCTION_CELL::FUNCTION>> functionNameMap{ {wstring(L"SUM"), shared_ptr<FUNCTION_CELL::SUM>()}, {wstring(L"AVERAGE"), shared_ptr<FUNCTION_CELL::AVERAGE>()} };
