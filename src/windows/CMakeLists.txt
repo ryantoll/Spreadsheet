@@ -1,6 +1,6 @@
 ﻿# Add source to this project's executable.
 add_executable (Spreadsheet-Windows-GUI WIN32 "Windows Infrastructure.cpp")
-target_compile_definitions(Spreadsheet-Windows-GUI PUBLIC "UNICODE;_UNICODE;WIN32_LEAN_AND_MEAN")
+target_compile_definitions(Spreadsheet-Windows-GUI PUBLIC "UNICODE;_UNICODE;_WINDOWS_GUI_APP;WIN32_LEAN_AND_MEAN")
 target_link_libraries(Spreadsheet-Windows-GUI PRIVATE cell)
 target_sources(Spreadsheet-Windows-GUI PRIVATE
 	About.cpp

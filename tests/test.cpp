@@ -1,5 +1,4 @@
 #include <catch2/catch_test_macros.hpp>
-#undef _WINDOWS
 #include "Cell.hpp"
 #include "Table.hpp"
 #include <optional>

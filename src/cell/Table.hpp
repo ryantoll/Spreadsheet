@@ -50,7 +50,7 @@ public:
 
 // Windows-specific code is segmented with a preprocessor command
 // Code for the appropriate system can be selected by this means
-#ifdef _WINDOWS
+#ifdef _WINDOWS_GUI_APP
 #include "WINDOW.hpp"
 inline RYANS_UTILITIES::WINDOWS_GUI::WINDOW m_Table, m_TextEditBar;
 inline WNDPROC m_EditHandler;
@@ -148,11 +148,11 @@ public:
 	operator HMENU() const { return reinterpret_cast<HMENU>(static_cast<UINT_PTR>(windowID)); }	// Allow for implicit conversion to HMENU
 };
 
-#endif // _WINDOWS
+#endif // _WINDOWS_GUI_APP
 
 // Alternative table implementaiton for a pure console interface.
 // This is provided to show platform portability while minimizing the need for learning a new platform.
-#ifdef _CONSOLE
+#ifdef _CONSOLE_APP
 class CONSOLE_TABLE : public TABLE_BASE {
 public:
 	void InitializeTable() override;
@@ -190,7 +190,7 @@ protected:
 	void UpdateCell(const CELL::CELL_POSITION) const override;
 	CELL::CELL_POSITION TargetCellGet() const override { return CELL::CELL_POSITION{ }; }
 };
-#endif // _CONSOLE
+#endif // _CONSOLE_APP
 
 
 #endif //!TABLE_CLASS_HPP

@@ -1,6 +1,5 @@
 // This still manages to get set properly on the Windows GUI project
 // I'm not quite sure how that works. Maybe it's some order of operations thing.
-#undef _WINDOWS
 
 #include "Cell.hpp"
 #include "Table.hpp"
