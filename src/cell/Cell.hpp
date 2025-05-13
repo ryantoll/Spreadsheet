@@ -59,14 +59,34 @@ public:
 		auto operator*() const { return *cell; }
 	public:
 		CELL_PROXY() = default;
-		explicit CELL_PROXY(const std::shared_ptr<CELL> target) : cell(target) { }
+		explicit CELL_PROXY(std::shared_ptr<CELL> target) : cell{ std::move(target) } { }
 		~CELL_PROXY() = default;
 
-		// Copy & move
-		CELL_PROXY& operator=(const std::shared_ptr<CELL> target) { cell = target; if (cell) { cell->UpdateCell(); } return *this; }
-		CELL_PROXY(const CELL_PROXY& target) : cell(target.cell) { cell = target.cell; if (cell) { cell->UpdateCell(); } }
-		CELL_PROXY& operator=(const std::shared_ptr<CELL>&& target) { cell = target; if (cell) { cell->UpdateCell(); } return *this; }
-		CELL_PROXY(const CELL_PROXY&& target) : cell(target.cell) { cell = target.cell; if (cell) { cell->UpdateCell(); } }
+		// Custom copy & move update cell. Move constructors swallow errors to allow typical noexcept behavior
+		CELL_PROXY& operator=(const CELL_PROXY& target) { cell = target.cell; if (cell) { cell->UpdateCell(); } return *this; }
+		CELL_PROXY(const CELL_PROXY& target) : cell{target.cell} { cell = target.cell; if (cell) { cell->UpdateCell(); } }
+
+		CELL_PROXY& operator=(CELL_PROXY&& target) {
+			cell = std::move(target.cell);
+			try { if (cell) { cell->UpdateCell(); } }
+			catch (...) { /*swallow errors*/ }
+			return *this;
+		}
+
+		CELL_PROXY(CELL_PROXY&& target) noexcept : cell{ std::move(target.cell) } {
+			try { if (cell) { cell->UpdateCell(); } }
+			catch (...) { /*swallow errors*/ }
+		}
+
+		// Can share in or assume ownership of cell pointer
+		CELL_PROXY& operator=(const std::shared_ptr<CELL>& target) { cell = target; if (cell) { cell->UpdateCell(); } return *this; }
+
+		CELL_PROXY& operator=(std::shared_ptr<CELL>&& target) noexcept {
+			cell = std::move(target);
+			try { if (cell) { cell->UpdateCell(); } }
+			catch (...) { /*swallow errors*/ }
+			return *this;
+		}
 
 		auto operator->() const { return cell; }
 		explicit operator bool() const { return bool{ cell }; }
