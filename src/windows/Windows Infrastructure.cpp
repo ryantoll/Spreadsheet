@@ -8,7 +8,6 @@
 
 #include "framework.hpp"
 #include "SpreadsheetApplication.hpp"
-#include "Table.hpp"
 
 // SpreadsheetApplication.cpp : Defines the entry point for the application.
 

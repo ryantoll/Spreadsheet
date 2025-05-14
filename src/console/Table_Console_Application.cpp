@@ -50,6 +50,44 @@ Function Mapping:
 =PI()
 )";
 
+class CONSOLE_TABLE : public TABLE_BASE {
+public:
+	void InitializeTable() override;
+	void PrintCellList() const;
+	void Redraw() const override;
+	void Undo() const override;
+	void Redo() const override;
+	CELL::CELL_PROXY CreateNewCell() const;
+	CELL::CELL_PROXY CreateNewCell(const CELL::CELL_POSITION, const std::string&) const override;
+	void ClearCell(const CELL::CELL_POSITION) const;
+	CELL::CELL_POSITION RequestCellPos() const;
+protected:
+	mutable CELL::CELL_DATA cellData;
+	mutable std::vector<std::pair<CELL::CELL_PROXY, CELL::CELL_PROXY>> undoStack{ };
+	mutable std::vector<std::pair<CELL::CELL_PROXY, CELL::CELL_PROXY>> redoStack{ };
+
+	// Unused functions
+	void Resize() override { }
+	void AddRow() override { }
+	void AddColumn() override { }
+	void RemoveRow() override { }
+	void RemoveColumn() override { }
+	unsigned int GetNumColumns() const override { return 0; }
+	unsigned int GetNumRows() const override { return 0; }
+	void FocusCell(const CELL::CELL_POSITION) const override { }
+	void UnfocusCell(const CELL::CELL_POSITION) const override { }
+	void FocusEntryBox() const override { }
+	void UnfocusEntryBox(const CELL::CELL_POSITION) const override { }
+	void FocusUp1(const CELL::CELL_POSITION) const override { }
+	void FocusDown1(const CELL::CELL_POSITION) const override { }
+	void FocusRight1(const CELL::CELL_POSITION) const override { }
+	void FocusLeft1(const CELL::CELL_POSITION) const override { }
+	void LockTargetCell(const CELL::CELL_POSITION) const override { }
+	void ReleaseTargetCell() const override { }
+	void UpdateCell(const CELL::CELL_POSITION) const override;
+	CELL::CELL_POSITION TargetCellGet() const override { return CELL::CELL_POSITION{ }; }
+};
+
 int main() {
 	table = std::make_unique<CONSOLE_TABLE>();
 	cout << R"(
